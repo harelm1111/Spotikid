@@ -53,6 +53,14 @@ const COPY = {
   },
 };
 
+const CATEGORY_COLORS = {
+  nature: "#5B8C68",
+  water: "#4F9AA8",
+  culture: "#C2854A",
+  outdoor: "#7D8C5B",
+  games: "#A6724F",
+};
+
 const CATEGORY_OPTIONS = {
   he: [
     { key: "nature", label: "טבע ובעלי חיים" },
@@ -203,11 +211,19 @@ export default function AddActivityScreen({ lang, setLang, onBack, onPublished, 
           <div>
             <label className="flex items-center gap-1.5 text-sm font-semibold mb-2 text-ink"><TagIcon size={14} /> {t.category} <span className="text-primary">*</span></label>
             <div className="flex flex-wrap gap-2">
-              {categories.map((c) => (
-                <button key={c.key} onClick={() => setCategory(c.key)} className={`px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors ${category === c.key ? "bg-primary text-white border-primary" : "bg-surface text-ink border-line"}`}>
-                  {c.label}
-                </button>
-              ))}
+              {categories.map((c) => {
+                const isSelected = category === c.key;
+                return (
+                  <button
+                    key={c.key}
+                    onClick={() => setCategory(c.key)}
+                    className={`px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors ${isSelected ? "text-white" : "bg-surface text-ink border-line"}`}
+                    style={isSelected ? { background: CATEGORY_COLORS[c.key], borderColor: CATEGORY_COLORS[c.key] } : undefined}
+                  >
+                    {c.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
