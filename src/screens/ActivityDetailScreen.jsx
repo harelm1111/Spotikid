@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
-  MapPin, Clock, Star, Globe, ArrowRight, ArrowLeft, Image as ImageIcon,
+  MapPin, Clock, Star, Globe, ArrowRight, ArrowLeft, Image as ImageIcon, Pencil, History,
 } from "lucide-react";
 import { fetchActivityById, fetchReviews, createReview, uploadPhoto } from "../lib/api";
 
@@ -23,6 +23,8 @@ const COPY = {
     ratingRequired: "בחרו דירוג לפני השליחה",
     anonymous: "הורה",
     justNow: "הרגע",
+    editActivity: "ערוך פרטים",
+    viewHistory: "היסטוריה",
   },
   en: {
     dir: "ltr",
@@ -42,6 +44,8 @@ const COPY = {
     ratingRequired: "Pick a rating before submitting",
     anonymous: "Parent",
     justNow: "Just now",
+    editActivity: "Edit details",
+    viewHistory: "History",
   },
 };
 
@@ -67,7 +71,7 @@ function timeAgo(dateStr, lang) {
   return lang === "he" ? `לפני ${months} חודשים` : `${months} months ago`;
 }
 
-export default function ActivityDetailScreen({ lang, setLang, onBack, isLoggedIn, onRequireLogin, activityId, user }) {
+export default function ActivityDetailScreen({ lang, setLang, onBack, isLoggedIn, onRequireLogin, activityId, user, onEdit, onViewHistory }) {
   const t = COPY[lang];
   const isRTL = t.dir === "rtl";
   const BackIcon = isRTL ? ArrowRight : ArrowLeft;
@@ -162,6 +166,21 @@ export default function ActivityDetailScreen({ lang, setLang, onBack, isLoggedIn
           ) : (
             <span className="text-sm text-inkSoft">{t.noRatingsYet}</span>
           )}
+        </div>
+
+        <div className="flex items-center gap-3 mb-5">
+          <button
+            onClick={() => (isLoggedIn ? onEdit(activityId) : onRequireLogin())}
+            className="flex items-center gap-1.5 text-xs font-medium rounded-full px-3 py-1.5 border border-line text-inkSoft"
+          >
+            <Pencil size={12} /> {t.editActivity}
+          </button>
+          <button
+            onClick={() => onViewHistory(activityId)}
+            className="flex items-center gap-1.5 text-xs font-medium rounded-full px-3 py-1.5 border border-line text-inkSoft"
+          >
+            <History size={12} /> {t.viewHistory}
+          </button>
         </div>
 
         <h2 className="font-bold mb-2 text-ink">{t.about}</h2>
