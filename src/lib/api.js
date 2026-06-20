@@ -133,6 +133,13 @@ export async function createActivitiesBulk(activities) {
   return data;
 }
 
+// Inserts new activities (no id) and updates existing ones (has id) in one call.
+export async function upsertActivitiesBulk(activities) {
+  const { data, error } = await supabase.from("activities").upsert(activities, { onConflict: "id" }).select();
+  if (error) throw error;
+  return data;
+}
+
 /* ---------- PHOTO UPLOAD ---------- */
 
 export async function uploadPhoto(file, folder = "activities") {
