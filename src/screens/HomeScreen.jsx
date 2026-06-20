@@ -225,7 +225,7 @@ export default function HomeScreen({ lang, setLang, onOpenActivity, onAdd, onAut
               {lang === "he" ? "EN" : "עב"}
             </button>
             {!isLoggedIn && (
-              <button onClick={onAuth} className="hidden sm:block text-sm font-semibold rounded-full px-4 py-1.5 bg-primaryDk text-white shrink-0">
+              <button onClick={onAuth} className="text-xs sm:text-sm font-semibold rounded-full px-2.5 sm:px-4 py-1.5 bg-primaryDk text-white shrink-0 whitespace-nowrap">
                 {t.signup}
               </button>
             )}
