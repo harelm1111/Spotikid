@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Mail, Lock, Globe } from "lucide-react";
 import { signIn, signUp } from "../lib/api";
+import Logo from "../components/Logo";
 
 const COPY = {
   he: {
@@ -91,7 +92,7 @@ export default function AuthScreen({ lang, setLang, onDone, onSkip }) {
   return (
     <div dir={t.dir} className="min-h-screen flex flex-col bg-bg">
       <div className="flex items-center justify-between px-4 py-4">
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-lg shrink-0 bg-primary">🌿</div>
+        <Logo size={36} />
         <button onClick={() => setLang(lang === "he" ? "en" : "he")} className="flex items-center gap-1 text-sm font-medium rounded-full px-3 py-1.5 border border-line text-ink">
           <Globe size={14} />
           {lang === "he" ? "EN" : "עב"}
