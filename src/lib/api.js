@@ -78,6 +78,55 @@ export async function createReview(review) {
   return data;
 }
 
+/* ---------- USER PROFILE DATA ---------- */
+
+export async function fetchMyActivities(userId) {
+  const { data, error } = await supabase
+    .from("activities")
+    .select("*")
+    .eq("created_by", userId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
+export async function fetchMyReviews(userId) {
+  const { data, error } = await supabase
+    .from("reviews")
+    .select("*, activities(id, name, city)")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
+/* ---------- SAVED ACTIVITIES (likes) ---------- */
+
+export async function fetchSavedActivities(userId) {
+  const { data, error } = await supabase
+    .from("saved_activities")
+    .select("activity_id, activities(*)")
+    .eq("user_id", userId);
+  if (error) throw error;
+  return data.map((row) => row.activities);
+}
+
+export async function fetchSavedActivityIds(userId) {
+  const { data, error } = await supabase.from("saved_activities").select("activity_id").eq("user_id", userId);
+  if (error) throw error;
+  return data.map((row) => row.activity_id);
+}
+
+export async function saveActivity(userId, activityId) {
+  const { error } = await supabase.from("saved_activities").insert({ user_id: userId, activity_id: activityId });
+  if (error) throw error;
+}
+
+export async function unsaveActivity(userId, activityId) {
+  const { error } = await supabase.from("saved_activities").delete().eq("user_id", userId).eq("activity_id", activityId);
+  if (error) throw error;
+}
+
 /* ---------- PHOTO UPLOAD ---------- */
 
 export async function uploadPhoto(file, folder = "activities") {
