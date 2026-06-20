@@ -5,6 +5,7 @@ import HomeScreen from "./screens/HomeScreen";
 import AuthScreen from "./screens/AuthScreen";
 import AddActivityScreen from "./screens/AddActivityScreen";
 import ActivityDetailScreen from "./screens/ActivityDetailScreen";
+import ProfileScreen from "./screens/ProfileScreen";
 
 export default function App() {
   const [lang, setLang] = useState("he");
@@ -27,6 +28,13 @@ export default function App() {
 
   const goHome = () => setScreen("home");
   const goAuth = () => setScreen("auth");
+  const goProfile = () => {
+    if (!isLoggedIn) {
+      setScreen("auth");
+      return;
+    }
+    setScreen("profile");
+  };
   const goAdd = () => {
     if (!isLoggedIn) {
       setScreen("auth");
@@ -56,7 +64,9 @@ export default function App() {
           onOpenActivity={openActivity}
           onAdd={goAdd}
           onAuth={goAuth}
+          onProfile={goProfile}
           isLoggedIn={isLoggedIn}
+          userId={user?.id}
         />
       )}
 
@@ -66,6 +76,18 @@ export default function App() {
 
       {screen === "add" && (
         <AddActivityScreen lang={lang} setLang={setLang} onBack={goHome} onPublished={goHome} user={user} />
+      )}
+
+      {screen === "profile" && (
+        <ProfileScreen
+          lang={lang}
+          setLang={setLang}
+          onBack={goHome}
+          onSignedOut={goHome}
+          onOpenActivity={openActivity}
+          onAdd={goAdd}
+          user={user}
+        />
       )}
 
       {screen === "detail" && (
