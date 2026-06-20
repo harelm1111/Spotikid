@@ -3,6 +3,7 @@ import {
   Globe, ArrowRight, ArrowLeft, MapPin, Star, Heart, LogOut, User as UserIcon, PlusCircle, MessageSquare,
 } from "lucide-react";
 import { fetchMyActivities, fetchMyReviews, fetchSavedActivities, signOut } from "../lib/api";
+import Logo from "../components/Logo";
 
 const COPY = {
   he: {
@@ -82,7 +83,10 @@ export default function ProfileScreen({ lang, setLang, onBack, onSignedOut, onOp
     <div dir={t.dir} className="min-h-screen bg-bg">
       <div className="sticky top-0 backdrop-blur-sm border-b border-line px-4 py-3 flex items-center justify-between z-10 bg-bg/95">
         <button onClick={onBack} className="text-ink"><BackIcon size={18} /></button>
-        <span className="font-bold text-ink">{t.title}</span>
+        <div className="flex items-center gap-2">
+          <Logo size={26} />
+          <span className="font-bold text-ink">{t.title}</span>
+        </div>
         <button onClick={() => setLang(lang === "he" ? "en" : "he")} className="flex items-center gap-1 text-sm font-medium rounded-full px-3 py-1.5 border border-line text-ink">
           <Globe size={14} />
           {lang === "he" ? "EN" : "עב"}
