@@ -1,8 +1,7 @@
 import React, { useState } from "react";
-import { Globe, ArrowRight, ArrowLeft, Upload, Check, AlertTriangle } from "lucide-react";
-import { createActivitiesBulk } from "../lib/api";
+import { Globe, ArrowRight, ArrowLeft, Upload, Download, Check, AlertTriangle } from "lucide-react";
+import { createActivitiesBulk, upsertActivitiesBulk, fetchActivities } from "../lib/api";
 
-// Edit this list to add or remove admins who can access the bulk import screen.
 const ADMIN_EMAILS = ["harelm@gmail.com"];
 
 const VALID_CATEGORIES = ["nature", "water", "culture", "outdoor", "games"];
@@ -10,9 +9,14 @@ const VALID_CATEGORIES = ["nature", "water", "culture", "outdoor", "games"];
 const COPY = {
   he: {
     dir: "rtl",
-    title: "ייבוא אטרקציות",
+    title: "ייבוא וייצוא אטרקציות",
     notAuthorized: "אין לך הרשאה לגשת לעמוד זה.",
-    instructions: "העלו קובץ Excel (.xlsx) או CSV עם העמודות: שם, עיר, תיאור, שעות_פעילות, גיל_מינימום, גיל_מקסימום, קטגוריה, קישור_תמונה",
+    exportTitle: "ייצוא המאגר הקיים",
+    exportSub: "מוריד קובץ Excel עם כל האטרקציות הקיימות. ערכו את הקובץ — הוסיפו שורות חדשות בתחתית, או ערכו שורות קיימות — ואז העלו אותו בחזרה.",
+    exportButton: "ייצוא לקובץ Excel",
+    exporting: "מייצא...",
+    importTitle: "ייבוא קובץ",
+    instructions: "העלו קובץ Excel (.xlsx) או CSV. שורות עם עמודת id קיימת יעודכנו; שורות בלי id יתווספו כחדשות.",
     chooseFile: "בחירת קובץ",
     parsing: "קורא את הקובץ...",
     geocoding: "מאתר מיקומים על המפה...",
@@ -20,18 +24,25 @@ const COPY = {
     rowsFound: "שורות נמצאו בקובץ",
     rowsValid: "שורות תקינות לייבוא",
     rowsInvalid: "שורות עם שגיאה (לא יובאו)",
+    newRows: "שורות חדשות",
+    updatedRows: "שורות שיעודכנו",
     startImport: "ייבוא לדאטהבייס",
     doneTitle: "הייבוא הושלם!",
-    doneMessage: "אטרקציות נוספו בהצלחה למאגר.",
+    doneMessage: "האטרקציות נוספו/עודכנו בהצלחה במאגר.",
     backHome: "חזרה לעמוד הבית",
     invalidCategory: "קטגוריה לא תקינה",
     missingField: "שדה חובה חסר",
   },
   en: {
     dir: "ltr",
-    title: "Import activities",
+    title: "Import & export activities",
     notAuthorized: "You don't have permission to access this page.",
-    instructions: "Upload an Excel (.xlsx) or CSV file with columns: name, city, description, hours, age_min, age_max, category, photo_url",
+    exportTitle: "Export current database",
+    exportSub: "Downloads an Excel file with all existing activities. Edit it — add new rows at the bottom, or edit existing ones — then upload it back.",
+    exportButton: "Export to Excel",
+    exporting: "Exporting...",
+    importTitle: "Import file",
+    instructions: "Upload an Excel (.xlsx) or CSV file. Rows with an existing id will be updated; rows without an id will be added as new.",
     chooseFile: "Choose file",
     parsing: "Reading file...",
     geocoding: "Looking up locations on the map...",
@@ -39,14 +50,18 @@ const COPY = {
     rowsFound: "rows found in file",
     rowsValid: "valid rows ready to import",
     rowsInvalid: "rows with errors (will be skipped)",
+    newRows: "new rows",
+    updatedRows: "rows to update",
     startImport: "Import to database",
     doneTitle: "Import complete!",
-    doneMessage: "Activities were successfully added to the database.",
+    doneMessage: "Activities were successfully added/updated in the database.",
     backHome: "Back to home",
     invalidCategory: "Invalid category",
     missingField: "Missing required field",
   },
 };
+
+const COLUMN_HEADERS_HE = ["id", "שם", "עיר", "תיאור", "שעות_פעילות", "גיל_מינימום", "גיל_מקסימום", "קטגוריה", "קישור_תמונה"];
 
 async function geocodeAddress(address) {
   try {
@@ -56,13 +71,12 @@ async function geocodeAddress(address) {
       return { lat: parseFloat(results[0].lat), lng: parseFloat(results[0].lon) };
     }
   } catch {
-    // Best-effort geocoding.
   }
   return { lat: null, lng: null };
 }
 
-// Normalizes a parsed spreadsheet row (Hebrew or English headers) into our DB schema.
 function normalizeRow(row, t) {
+  const id = row["id"] || row["ID"] || null;
   const name = row["שם"] || row["name"];
   const city = row["עיר"] || row["city"];
   const description = row["תיאור"] || row["description"];
@@ -83,8 +97,10 @@ function normalizeRow(row, t) {
 
   return {
     valid: errors.length === 0,
+    isUpdate: !!id,
     errors,
     data: {
+      ...(id ? { id } : {}),
       name,
       city,
       description,
@@ -104,7 +120,7 @@ export default function AdminImportScreen({ lang, setLang, onBack, user }) {
 
   const isAdmin = user && ADMIN_EMAILS.includes(user.email);
 
-  const [stage, setStage] = useState("idle"); // idle | parsing | review | geocoding | importing | done
+  const [stage, setStage] = useState("idle");
   const [rows, setRows] = useState([]);
   const [error, setError] = useState("");
 
@@ -115,6 +131,37 @@ export default function AdminImportScreen({ lang, setLang, onBack, user }) {
       </div>
     );
   }
+
+  const handleExport = async () => {
+    setError("");
+    setStage("exporting");
+    try {
+      const activities = await fetchActivities();
+      const XLSX = await import("xlsx");
+
+      const rowsForExport = activities.map((a) => ({
+        id: a.id,
+        שם: a.name,
+        עיר: a.city,
+        תיאור: a.description,
+        שעות_פעילות: a.hours,
+        גיל_מינימום: a.age_min,
+        גיל_מקסימום: a.age_max,
+        קטגוריה: a.category,
+        קישור_תמונה: a.photo_url || "",
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(rowsForExport, { header: COLUMN_HEADERS_HE });
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "אטרקציות");
+      XLSX.writeFile(workbook, `spotikid-activities-${new Date().toISOString().slice(0, 10)}.xlsx`);
+
+      setStage("idle");
+    } catch (err) {
+      setError(err.message);
+      setStage("idle");
+    }
+  };
 
   const handleFile = async (e) => {
     const file = e.target.files?.[0];
@@ -129,7 +176,6 @@ export default function AdminImportScreen({ lang, setLang, onBack, user }) {
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
-      // Skip the instructions row (row 2 in the template) if it looks like a note, not real data.
       const dataRows = json.filter((r) => {
         const firstVal = Object.values(r)[0];
         return firstVal && !String(firstVal).includes("חובה");
@@ -150,13 +196,17 @@ export default function AdminImportScreen({ lang, setLang, onBack, user }) {
 
     const withCoords = [];
     for (const r of validRows) {
-      const { lat, lng } = await geocodeAddress(r.data.city);
-      withCoords.push({ ...r.data, created_by: user.id, lat, lng });
+      if (r.isUpdate) {
+        withCoords.push(r.data);
+      } else {
+        const { lat, lng } = await geocodeAddress(r.data.city);
+        withCoords.push({ ...r.data, created_by: user.id, lat, lng });
+      }
     }
 
     setStage("importing");
     try {
-      await createActivitiesBulk(withCoords);
+      await upsertActivitiesBulk(withCoords);
       setStage("done");
     } catch (err) {
       setError(err.message);
@@ -164,8 +214,11 @@ export default function AdminImportScreen({ lang, setLang, onBack, user }) {
     }
   };
 
-  const validCount = rows.filter((r) => r.valid).length;
+  const validRows = rows.filter((r) => r.valid);
+  const validCount = validRows.length;
   const invalidCount = rows.length - validCount;
+  const newCount = validRows.filter((r) => !r.isUpdate).length;
+  const updateCount = validRows.filter((r) => r.isUpdate).length;
 
   return (
     <div dir={t.dir} className="min-h-screen bg-bg">
@@ -180,6 +233,23 @@ export default function AdminImportScreen({ lang, setLang, onBack, user }) {
 
       <div className="max-w-2xl mx-auto px-4 py-6">
         {error && <div className="mb-4 text-sm rounded-xl px-3.5 py-2.5 bg-red-50 text-red-600 border border-red-200">{error}</div>}
+
+        <div className="rounded-2xl border border-line bg-surface p-4 mb-6">
+          <h2 className="font-bold text-ink mb-1.5">{t.exportTitle}</h2>
+          <p className="text-sm text-inkSoft mb-4">{t.exportSub}</p>
+          <button
+            onClick={handleExport}
+            disabled={stage === "exporting"}
+            className="flex items-center justify-center gap-2 w-full font-semibold rounded-xl py-3 text-white bg-primaryDk disabled:opacity-50"
+          >
+            <Download size={16} />
+            {stage === "exporting" ? t.exporting : t.exportButton}
+          </button>
+        </div>
+
+        <div className="h-px bg-line mb-6" />
+
+        <h2 className="font-bold text-ink mb-3">{t.importTitle}</h2>
 
         {stage === "idle" && (
           <>
@@ -202,8 +272,12 @@ export default function AdminImportScreen({ lang, setLang, onBack, user }) {
                 <span className="font-semibold text-ink">{rows.length}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-1.5 text-primaryDk"><Check size={14} /> {t.rowsValid}</span>
-                <span className="font-semibold text-primaryDk">{validCount}</span>
+                <span className="flex items-center gap-1.5 text-primaryDk"><Check size={14} /> {t.newRows}</span>
+                <span className="font-semibold text-primaryDk">{newCount}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="flex items-center gap-1.5 text-primaryDk"><Check size={14} /> {t.updatedRows}</span>
+                <span className="font-semibold text-primaryDk">{updateCount}</span>
               </div>
               {invalidCount > 0 && (
                 <div className="flex items-center justify-between text-sm">
