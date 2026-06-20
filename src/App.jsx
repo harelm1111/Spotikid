@@ -6,6 +6,7 @@ import AuthScreen from "./screens/AuthScreen";
 import AddActivityScreen from "./screens/AddActivityScreen";
 import ActivityDetailScreen from "./screens/ActivityDetailScreen";
 import ProfileScreen from "./screens/ProfileScreen";
+import AdminImportScreen from "./screens/AdminImportScreen";
 
 export default function App() {
   const [lang, setLang] = useState("he");
@@ -41,6 +42,13 @@ export default function App() {
       return;
     }
     setScreen("add");
+  };
+  const goAdminImport = () => {
+    if (!isLoggedIn) {
+      setScreen("auth");
+      return;
+    }
+    setScreen("adminImport");
   };
   const openActivity = (id) => {
     setActiveActivityId(id);
@@ -86,8 +94,13 @@ export default function App() {
           onSignedOut={goHome}
           onOpenActivity={openActivity}
           onAdd={goAdd}
+          onAdminImport={goAdminImport}
           user={user}
         />
+      )}
+
+      {screen === "adminImport" && (
+        <AdminImportScreen lang={lang} setLang={setLang} onBack={goHome} user={user} />
       )}
 
       {screen === "detail" && (
