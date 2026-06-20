@@ -7,6 +7,8 @@ import AddActivityScreen from "./screens/AddActivityScreen";
 import ActivityDetailScreen from "./screens/ActivityDetailScreen";
 import ProfileScreen from "./screens/ProfileScreen";
 import AdminImportScreen from "./screens/AdminImportScreen";
+import EditActivityScreen from "./screens/EditActivityScreen";
+import HistoryScreen from "./screens/HistoryScreen";
 
 export default function App() {
   const [lang, setLang] = useState("he");
@@ -49,6 +51,18 @@ export default function App() {
       return;
     }
     setScreen("adminImport");
+  };
+  const goEditActivity = (id) => {
+    if (!isLoggedIn) {
+      setScreen("auth");
+      return;
+    }
+    setActiveActivityId(id);
+    setScreen("edit");
+  };
+  const goHistory = (id) => {
+    setActiveActivityId(id);
+    setScreen("history");
   };
   const openActivity = (id) => {
     setActiveActivityId(id);
@@ -103,6 +117,27 @@ export default function App() {
         <AdminImportScreen lang={lang} setLang={setLang} onBack={goHome} user={user} />
       )}
 
+      {screen === "edit" && (
+        <EditActivityScreen
+          lang={lang}
+          setLang={setLang}
+          onBack={() => openActivity(activeActivityId)}
+          onSaved={() => openActivity(activeActivityId)}
+          onViewHistory={() => goHistory(activeActivityId)}
+          activityId={activeActivityId}
+          user={user}
+        />
+      )}
+
+      {screen === "history" && (
+        <HistoryScreen
+          lang={lang}
+          setLang={setLang}
+          onBack={() => openActivity(activeActivityId)}
+          activityId={activeActivityId}
+        />
+      )}
+
       {screen === "detail" && (
         <ActivityDetailScreen
           lang={lang}
@@ -112,6 +147,8 @@ export default function App() {
           onRequireLogin={goAuth}
           activityId={activeActivityId}
           user={user}
+          onEdit={goEditActivity}
+          onViewHistory={goHistory}
         />
       )}
     </>
