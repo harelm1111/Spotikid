@@ -177,8 +177,10 @@ export default function AdminImportScreen({ lang, setLang, onBack, user }) {
       const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
       const dataRows = json.filter((r) => {
-        const firstVal = Object.values(r)[0];
-        return firstVal && !String(firstVal).includes("חובה");
+        const values = Object.values(r);
+        const hasAnyValue = values.some((v) => v !== "" && v !== null && v !== undefined);
+        const looksLikeInstructions = values.some((v) => String(v).includes("חובה"));
+        return hasAnyValue && !looksLikeInstructions;
       });
 
       const normalized = dataRows.map((r) => normalizeRow(r, t));
