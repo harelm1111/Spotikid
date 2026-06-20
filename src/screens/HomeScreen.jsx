@@ -7,6 +7,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { fetchActivities, fetchSavedActivityIds, saveActivity, unsaveActivity } from "../lib/api";
+import Logo from "../components/Logo";
 
 const COPY = {
   he: {
@@ -56,14 +57,22 @@ const CATEGORY_LABELS = {
   he: { all: "הכל", nature: "טבע ובעלי חיים", water: "מים וקיץ", culture: "תרבות ולמידה", outdoor: "טיולים בטבע", games: "אתגר ומשחק" },
   en: { all: "All", nature: "Nature & Animals", water: "Water & Summer", culture: "Culture & Learning", outdoor: "Outdoor & Hiking", games: "Games & Challenges" },
 };
+const CATEGORY_COLORS = {
+  nature: "#5B8C68",
+  water: "#4F9AA8",
+  culture: "#C2854A",
+  outdoor: "#7D8C5B",
+  games: "#A6724F",
+};
+const categoryColor = (key) => CATEGORY_COLORS[key] || "#5B8C68";
 
 // Default map center: Israel
 const DEFAULT_CENTER = [31.7683, 35.2137];
 
-const markerIcon = (highlighted) =>
+const markerIcon = (highlighted, color) =>
   L.divIcon({
     html: `<div style="
-      background:${highlighted ? "#3E6B4A" : "#5B8C68"};
+      background:${color};
       width:${highlighted ? "28px" : "22px"}; height:${highlighted ? "28px" : "22px"};
       border-radius:50%; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.25);
     "></div>`,
@@ -102,7 +111,7 @@ function ActivityCard({ a, lang, isRTL, onHover, hovered, onOpen, t, isSaved, on
         {a.photo_url ? (
           <img src={a.photo_url} alt={a.name} className="absolute inset-0 w-full h-full object-cover" />
         ) : null}
-        <span className="relative text-xs font-semibold rounded-full px-2.5 py-1 bg-primary text-white">
+        <span className="relative text-xs font-semibold rounded-full px-2.5 py-1 text-white" style={{ background: categoryColor(a.category) }}>
           {CATEGORY_LABELS[lang][a.category] || a.category}
         </span>
         <div className={`absolute top-3 ${isRTL ? "left-3" : "right-3"} flex gap-1.5`}>
@@ -177,7 +186,7 @@ function MapPanel({ activities, hovered, onHover, onOpen }) {
           <Marker
             key={a.id}
             position={[a.lat, a.lng]}
-            icon={markerIcon(hovered === a.id)}
+            icon={markerIcon(hovered === a.id, categoryColor(a.category))}
             eventHandlers={{
               mouseover: () => onHover(a.id),
               mouseout: () => onHover(null),
@@ -262,10 +271,11 @@ export default function HomeScreen({ lang, setLang, onOpenActivity, onAdd, onAut
       <header className="sticky top-0 z-30 backdrop-blur-sm border-b border-line bg-bg/95">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-lg shrink-0 bg-primary">
-              🌿
+            <Logo size={36} />
+            <div className="hidden sm:flex flex-col leading-tight">
+              <span className="font-bold text-ink text-sm">Spotikid</span>
+              <span className="text-[11px] text-inkSoft">{t.brand}</span>
             </div>
-            <span className="font-bold text-lg hidden sm:inline text-ink">{t.brand}</span>
           </div>
           <div className="flex-1 max-w-md mx-3 relative">
             <Search size={16} className={`absolute top-1/2 -translate-y-1/2 text-inkSoft ${isRTL ? "right-3.5" : "left-3.5"}`} />
@@ -309,17 +319,22 @@ export default function HomeScreen({ lang, setLang, onOpenActivity, onAdd, onAut
             )}
           </button>
           <div className="w-px h-5 shrink-0 bg-line" />
-          {CATEGORY_KEYS.map((key) => (
-            <button
-              key={key}
-              onClick={() => setSelectedCategory(key)}
-              className={`shrink-0 px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-                selectedCategory === key ? "bg-primary text-white border-primary" : "bg-surface text-ink border-line"
-              }`}
-            >
-              {CATEGORY_LABELS[lang][key]}
-            </button>
-          ))}
+          {CATEGORY_KEYS.map((key) => {
+            const isSelected = selectedCategory === key;
+            const color = key === "all" ? "#5B8C68" : categoryColor(key);
+            return (
+              <button
+                key={key}
+                onClick={() => setSelectedCategory(key)}
+                className={`shrink-0 px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                  isSelected ? "text-white" : "bg-surface text-ink border-line"
+                }`}
+                style={isSelected ? { background: color, borderColor: color } : undefined}
+              >
+                {CATEGORY_LABELS[lang][key]}
+              </button>
+            );
+          })}
         </div>
 
         {kidsOpen && (
