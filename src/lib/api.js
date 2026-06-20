@@ -127,6 +127,12 @@ export async function unsaveActivity(userId, activityId) {
   if (error) throw error;
 }
 
+export async function createActivitiesBulk(activities) {
+  const { data, error } = await supabase.from("activities").insert(activities).select();
+  if (error) throw error;
+  return data;
+}
+
 /* ---------- PHOTO UPLOAD ---------- */
 
 export async function uploadPhoto(file, folder = "activities") {
