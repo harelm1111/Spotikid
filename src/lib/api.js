@@ -60,6 +60,30 @@ export async function createActivity(activity) {
   return data;
 }
 
+export async function updateActivity(id, updates, userId) {
+  const { data, error } = await supabase.from("activities").update(updates).eq("id", id).select().single();
+  if (error) throw error;
+
+  // Log the edit for the wiki-style history view (best-effort, doesn't block the update).
+  await supabase.from("activity_history").insert({
+    activity_id: id,
+    edited_by: userId,
+    changed_fields: updates,
+  });
+
+  return data;
+}
+
+export async function fetchActivityHistory(activityId) {
+  const { data, error } = await supabase
+    .from("activity_history")
+    .select("*, profiles(email)")
+    .eq("activity_id", activityId)
+    .order("edited_at", { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
 /* ---------- REVIEWS ---------- */
 
 export async function fetchReviews(activityId) {
