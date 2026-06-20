@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   MapPin, Clock, Star, Search, SlidersHorizontal, Heart, ChevronRight,
-  Globe, X, Plus, Users,
+  Globe, X, Plus, Users, Share2, User as UserIcon,
 } from "lucide-react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { fetchActivities } from "../lib/api";
+import { fetchActivities, fetchSavedActivityIds, saveActivity, unsaveActivity } from "../lib/api";
 
 const COPY = {
   he: {
@@ -22,9 +22,12 @@ const COPY = {
     ratingSort: "דירוג",
     away: "ק״מ",
     signup: "הרשמה / התחברות",
+    profile: "האזור שלי",
     emptyState: "לא מצאנו אטרקציות שתואמות לסינון. נסו להרחיב את החיפוש, או הוסיפו אטרקציה בעצמכם!",
     loading: "טוען אטרקציות...",
     noRatingsYet: "אין דירוגים עדיין",
+    shareText: "תראו את האטרקציה הזו שמצאתי",
+    linkCopied: "הקישור הועתק!",
   },
   en: {
     dir: "ltr",
@@ -39,9 +42,12 @@ const COPY = {
     ratingSort: "Rating",
     away: "km",
     signup: "Sign up / Log in",
+    profile: "My Area",
     emptyState: "No activities match your filters. Try widening your search, or add one yourself!",
     loading: "Loading activities...",
     noRatingsYet: "No ratings yet",
+    shareText: "Check out this activity I found",
+    linkCopied: "Link copied!",
   },
 };
 
@@ -65,10 +71,25 @@ const markerIcon = (highlighted) =>
     iconSize: highlighted ? [28, 28] : [22, 22],
   });
 
-function ActivityCard({ a, lang, isRTL, onHover, hovered, onOpen, t }) {
-  const [saved, setSaved] = useState(false);
-  const rating = a.avgRating ? a.avgRating.toFixed(1) : null;
+// Builds a shareable link back to a specific activity and uses the device's
+// native share sheet (WhatsApp, Messages, etc.) when available, otherwise
+// falls back to copying the link to the clipboard.
+async function shareActivity(activity, t) {
+  const url = `${window.location.origin}${window.location.pathname}?activity=${activity.id}`;
+  const shareData = { title: activity.name, text: t.shareText, url };
+  try {
+    if (navigator.share) {
+      await navigator.share(shareData);
+    } else {
+      await navigator.clipboard.writeText(url);
+      alert(t.linkCopied);
+    }
+  } catch {
+    // User cancelled the share sheet — nothing to do.
+  }
+}
 
+function ActivityCard({ a, lang, isRTL, onHover, hovered, onOpen, t, isSaved, onToggleSave, isLoggedIn, onAuth }) {
   return (
     <div
       onMouseEnter={() => onHover(a.id)}
@@ -84,12 +105,24 @@ function ActivityCard({ a, lang, isRTL, onHover, hovered, onOpen, t }) {
         <span className="relative text-xs font-semibold rounded-full px-2.5 py-1 bg-primary text-white">
           {CATEGORY_LABELS[lang][a.category] || a.category}
         </span>
-        <button
-          onClick={(e) => { e.stopPropagation(); setSaved(!saved); }}
-          className={`absolute top-3 ${isRTL ? "left-3" : "right-3"} w-8 h-8 rounded-full flex items-center justify-center bg-white/90`}
-        >
-          <Heart size={16} className={saved ? "fill-primary text-primary" : "text-ink"} />
-        </button>
+        <div className={`absolute top-3 ${isRTL ? "left-3" : "right-3"} flex gap-1.5`}>
+          <button
+            onClick={(e) => { e.stopPropagation(); shareActivity(a, t); }}
+            className="w-8 h-8 rounded-full flex items-center justify-center bg-white/90"
+          >
+            <Share2 size={15} className="text-ink" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!isLoggedIn) { onAuth(); return; }
+              onToggleSave(a.id, isSaved);
+            }}
+            className="w-8 h-8 rounded-full flex items-center justify-center bg-white/90"
+          >
+            <Heart size={16} className={isSaved ? "fill-primary text-primary" : "text-ink"} />
+          </button>
+        </div>
       </div>
       <div className="p-3.5">
         <h3 className="font-bold text-sm leading-snug mb-1.5 text-ink">{a.name}</h3>
@@ -102,10 +135,10 @@ function ActivityCard({ a, lang, isRTL, onHover, hovered, onOpen, t }) {
           <span>{a.hours}</span>
         </div>
         <div className="flex items-center justify-between mt-1">
-          {rating ? (
+          {a.avgRating ? (
             <div className="flex items-center gap-1">
               <Star size={13} className="fill-star text-star" />
-              <span className="font-semibold text-xs text-ink">{rating}</span>
+              <span className="font-semibold text-xs text-ink">{a.avgRating.toFixed(1)}</span>
               <span className="text-xs text-inkSoft">({a.reviewCount})</span>
             </div>
           ) : (
@@ -159,12 +192,13 @@ function MapPanel({ activities, hovered, onHover, onOpen }) {
   );
 }
 
-export default function HomeScreen({ lang, setLang, onOpenActivity, onAdd, onAuth, isLoggedIn }) {
+export default function HomeScreen({ lang, setLang, onOpenActivity, onAdd, onAuth, onProfile, isLoggedIn, userId }) {
   const t = COPY[lang];
   const isRTL = t.dir === "rtl";
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [savedIds, setSavedIds] = useState([]);
 
   const [query, setQuery] = useState("");
   const [kids, setKids] = useState([{ id: 1, age: 4 }]);
@@ -179,6 +213,29 @@ export default function HomeScreen({ lang, setLang, onOpenActivity, onAdd, onAut
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (isLoggedIn && userId) {
+      fetchSavedActivityIds(userId).then(setSavedIds).catch(() => {});
+    } else {
+      setSavedIds([]);
+    }
+  }, [isLoggedIn, userId]);
+
+  const handleToggleSave = async (activityId, isSaved) => {
+    // optimistic update
+    setSavedIds((prev) => (isSaved ? prev.filter((id) => id !== activityId) : [...prev, activityId]));
+    try {
+      if (isSaved) {
+        await unsaveActivity(userId, activityId);
+      } else {
+        await saveActivity(userId, activityId);
+      }
+    } catch {
+      // revert on failure
+      setSavedIds((prev) => (isSaved ? [...prev, activityId] : prev.filter((id) => id !== activityId)));
+    }
+  };
 
   const kidAges = kids.map((k) => k.age);
 
@@ -224,7 +281,11 @@ export default function HomeScreen({ lang, setLang, onOpenActivity, onAdd, onAut
               <Globe size={14} />
               {lang === "he" ? "EN" : "עב"}
             </button>
-            {!isLoggedIn && (
+            {isLoggedIn ? (
+              <button onClick={onProfile} className="w-9 h-9 rounded-full flex items-center justify-center bg-primaryDk text-white shrink-0">
+                <UserIcon size={16} />
+              </button>
+            ) : (
               <button onClick={onAuth} className="text-xs sm:text-sm font-semibold rounded-full px-2.5 sm:px-4 py-1.5 bg-primaryDk text-white shrink-0 whitespace-nowrap">
                 {t.signup}
               </button>
@@ -309,7 +370,20 @@ export default function HomeScreen({ lang, setLang, onOpenActivity, onAdd, onAut
           ) : filtered.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
               {filtered.map((a) => (
-                <ActivityCard key={a.id} a={a} lang={lang} isRTL={isRTL} hovered={hovered} onHover={setHovered} onOpen={onOpenActivity} t={t} />
+                <ActivityCard
+                  key={a.id}
+                  a={a}
+                  lang={lang}
+                  isRTL={isRTL}
+                  hovered={hovered}
+                  onHover={setHovered}
+                  onOpen={onOpenActivity}
+                  t={t}
+                  isSaved={savedIds.includes(a.id)}
+                  onToggleSave={handleToggleSave}
+                  isLoggedIn={isLoggedIn}
+                  onAuth={onAuth}
+                />
               ))}
             </div>
           ) : (
