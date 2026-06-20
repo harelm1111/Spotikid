@@ -5,6 +5,8 @@ import {
 import { fetchMyActivities, fetchMyReviews, fetchSavedActivities, signOut } from "../lib/api";
 import Logo from "../components/Logo";
 
+const ADMIN_EMAILS = ["harelm@gmail.com"];
+
 const COPY = {
   he: {
     dir: "rtl",
@@ -20,6 +22,7 @@ const COPY = {
     signOut: "התנתקות",
     loading: "טוען...",
     yourReviewOn: "הביקורת שלך על",
+    adminImport: "ייבוא אטרקציות (מנהל)",
   },
   en: {
     dir: "ltr",
@@ -35,6 +38,7 @@ const COPY = {
     signOut: "Sign out",
     loading: "Loading...",
     yourReviewOn: "Your review on",
+    adminImport: "Import activities (admin)",
   },
 };
 
@@ -48,7 +52,7 @@ function StarRow({ value }) {
   );
 }
 
-export default function ProfileScreen({ lang, setLang, onBack, onSignedOut, onOpenActivity, onAdd, user }) {
+export default function ProfileScreen({ lang, setLang, onBack, onSignedOut, onOpenActivity, onAdd, onAdminImport, user }) {
   const t = COPY[lang];
   const isRTL = t.dir === "rtl";
   const BackIcon = isRTL ? ArrowRight : ArrowLeft;
@@ -192,7 +196,13 @@ export default function ProfileScreen({ lang, setLang, onBack, onSignedOut, onOp
           </>
         )}
 
-        <button onClick={handleSignOut} className="w-full flex items-center justify-center gap-2 text-sm font-medium text-red-500 mt-10 py-3">
+        {ADMIN_EMAILS.includes(user.email) && (
+          <button onClick={onAdminImport} className="w-full flex items-center justify-center gap-2 text-sm font-medium text-primaryDk mt-10 py-3 border border-line rounded-xl">
+            <UserIcon size={16} /> {t.adminImport}
+          </button>
+        )}
+
+        <button onClick={handleSignOut} className="w-full flex items-center justify-center gap-2 text-sm font-medium text-red-500 mt-4 py-3">
           <LogOut size={16} /> {t.signOut}
         </button>
       </div>
