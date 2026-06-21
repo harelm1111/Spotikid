@@ -3,6 +3,7 @@ import {
   MapPin, Clock, Star, Globe, ArrowRight, ArrowLeft, Image as ImageIcon, Pencil, History, ExternalLink,
 } from "lucide-react";
 import { fetchActivityById, fetchReviews, createReview, uploadPhoto } from "../lib/api";
+import CategoryIllustration from "../components/CategoryIllustration";
 
 const COPY = {
   he: {
@@ -148,8 +149,8 @@ export default function ActivityDetailScreen({ lang, setLang, onBack, isLoggedIn
         </button>
       </div>
 
-      <div className="h-48 w-full bg-tint">
-        {activity.photo_url && <img src={activity.photo_url} alt={activity.name} className="w-full h-full object-cover" />}
+      <div className="h-48 w-full bg-tint overflow-hidden">
+        <CategoryIllustration category={activity.category} photoUrl={activity.photo_url} alt={activity.name} className="w-full h-full" />
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-5">
