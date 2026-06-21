@@ -184,12 +184,7 @@ export default function ActivityDetailScreen({ lang, setLang, onBack, isLoggedIn
           >
             <History size={12} /> {t.viewHistory}
           </button>
-          
-            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.name + " " + activity.city)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-xs font-medium rounded-full px-3 py-1.5 border border-line text-inkSoft"
-          >
+          <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.name + " " + activity.city)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs font-medium rounded-full px-3 py-1.5 border border-line text-inkSoft">
             <ExternalLink size={12} /> {t.openInMaps}
           </a>
         </div>
