@@ -4,6 +4,7 @@ import {
 } from "lucide-react";
 import { fetchMyActivities, fetchMyReviews, fetchSavedActivities, signOut } from "../lib/api";
 import Logo from "../components/Logo";
+import CategoryIllustration from "../components/CategoryIllustration";
 
 const ADMIN_EMAILS = ["harelm@gmail.com"];
 
@@ -146,7 +147,7 @@ export default function ProfileScreen({ lang, setLang, onBack, onSignedOut, onOp
                   {myActivities.map((a) => (
                     <button key={a.id} onClick={() => onOpenActivity(a.id)} className="w-full flex items-center gap-3 p-3 rounded-2xl border border-line bg-surface text-start">
                       <div className="w-14 h-14 rounded-xl shrink-0 bg-tint overflow-hidden">
-                        {a.photo_url && <img src={a.photo_url} className="w-full h-full object-cover" alt="" />}
+                        <CategoryIllustration category={a.category} photoUrl={a.photo_url} alt={a.name} className="w-full h-full" />
                       </div>
                       <div className="flex-1">
                         <div className="font-semibold text-sm text-ink">{a.name}</div>
@@ -181,8 +182,8 @@ export default function ProfileScreen({ lang, setLang, onBack, onSignedOut, onOp
                 <div className="grid grid-cols-2 gap-3">
                   {saved.map((a) => (
                     <button key={a.id} onClick={() => onOpenActivity(a.id)} className="rounded-2xl border border-line bg-surface overflow-hidden text-start">
-                      <div className="h-20 bg-tint">
-                        {a.photo_url && <img src={a.photo_url} className="w-full h-full object-cover" alt="" />}
+                      <div className="h-20 bg-tint overflow-hidden">
+                        <CategoryIllustration category={a.category} photoUrl={a.photo_url} alt={a.name} className="w-full h-full" />
                       </div>
                       <div className="p-2.5">
                         <div className="font-semibold text-xs text-ink leading-snug">{a.name}</div>
