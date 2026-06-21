@@ -8,6 +8,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { fetchActivities, fetchSavedActivityIds, saveActivity, unsaveActivity } from "../lib/api";
 import Logo from "../components/Logo";
+import CategoryIllustration from "../components/CategoryIllustration";
 
 const COPY = {
   he: {
@@ -107,10 +108,8 @@ function ActivityCard({ a, lang, isRTL, onHover, hovered, onOpen, t, isSaved, on
       className="rounded-2xl border overflow-hidden transition-all duration-200 cursor-pointer bg-surface"
       style={{ borderColor: hovered === a.id ? "#5B8C68" : "#DCE6DC", boxShadow: hovered === a.id ? "0 6px 16px rgba(91,140,104,0.15)" : "none" }}
     >
-      <div className="h-28 relative flex items-end p-3 bg-tint">
-        {a.photo_url ? (
-          <img src={a.photo_url} alt={a.name} className="absolute inset-0 w-full h-full object-cover" />
-        ) : null}
+      <div className="h-28 relative flex items-end p-3 bg-tint overflow-hidden">
+        <CategoryIllustration category={a.category} photoUrl={a.photo_url} alt={a.name} className="absolute inset-0 w-full h-full" />
         <span className="relative text-xs font-semibold rounded-full px-2.5 py-1 text-white" style={{ background: categoryColor(a.category) }}>
           {CATEGORY_LABELS[lang][a.category] || a.category}
         </span>
