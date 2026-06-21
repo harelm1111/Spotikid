@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
-  MapPin, Clock, Star, Globe, ArrowRight, ArrowLeft, Image as ImageIcon, Pencil, History,
+  MapPin, Clock, Star, Globe, ArrowRight, ArrowLeft, Image as ImageIcon, Pencil, History, ExternalLink,
 } from "lucide-react";
 import { fetchActivityById, fetchReviews, createReview, uploadPhoto } from "../lib/api";
 
@@ -25,6 +25,7 @@ const COPY = {
     justNow: "הרגע",
     editActivity: "ערוך פרטים",
     viewHistory: "היסטוריה",
+    openInMaps: "ראו ביקורות ב-Google Maps",
   },
   en: {
     dir: "ltr",
@@ -46,6 +47,7 @@ const COPY = {
     justNow: "Just now",
     editActivity: "Edit details",
     viewHistory: "History",
+    openInMaps: "See reviews on Google Maps",
   },
 };
 
@@ -181,6 +183,14 @@ export default function ActivityDetailScreen({ lang, setLang, onBack, isLoggedIn
           >
             <History size={12} /> {t.viewHistory}
           </button>
+          
+            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.name + " " + activity.city)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-xs font-medium rounded-full px-3 py-1.5 border border-line text-inkSoft"
+          >
+            <ExternalLink size={12} /> {t.openInMaps}
+          </a>
         </div>
 
         <h2 className="font-bold mb-2 text-ink">{t.about}</h2>
