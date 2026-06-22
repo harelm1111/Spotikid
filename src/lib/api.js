@@ -184,6 +184,49 @@ export async function setUserAdminStatus(userId, isAdmin) {
   if (error) throw error;
 }
 
+export async function recordActivityView(activityId, userId, durationSeconds) {
+  const { error } = await supabase.from("activity_views").insert({
+    activity_id: activityId,
+    user_id: userId,
+    duration_seconds: durationSeconds,
+  });
+  if (error) throw error;
+}
+
+export async function fetchMostViewedActivities(limit = 10) {
+  const { data, error } = await supabase
+    .from("activity_views")
+    .select("activity_id, activities(name, city)");
+  if (error) throw error;
+
+  const counts = {};
+  data.forEach((row) => {
+    const key = row.activity_id;
+    if (!counts[key]) counts[key] = { count: 0, name: row.activities?.name, city: row.activities?.city };
+    counts[key].count += 1;
+  });
+
+  return Object.values(counts)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+}
+
+export async function fetchTotalTimeSpentByUser() {
+  const { data, error } = await supabase
+    .from("activity_views")
+    .select("user_id, duration_seconds, profiles(email)");
+  if (error) throw error;
+
+  const totals = {};
+  data.forEach((row) => {
+    const key = row.user_id;
+    if (!totals[key]) totals[key] = { seconds: 0, email: row.profiles?.email };
+    totals[key].seconds += row.duration_seconds || 0;
+  });
+
+  return Object.values(totals).sort((a, b) => b.seconds - a.seconds);
+}
+
 /* ---------- PHOTO UPLOAD ---------- */
 
 export async function uploadPhoto(file, folder = "activities") {
