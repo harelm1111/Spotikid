@@ -227,6 +227,41 @@ export async function fetchTotalTimeSpentByUser() {
   return Object.values(totals).sort((a, b) => b.seconds - a.seconds);
 }
 
+export async function deleteActivity(id) {
+  const { error } = await supabase.from("activities").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteReview(id) {
+  const { error } = await supabase.from("reviews").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function submitReport({ reporterId, activityId, reviewId, reason }) {
+  const { error } = await supabase.from("reports").insert({
+    reporter_id: reporterId,
+    activity_id: activityId || null,
+    review_id: reviewId || null,
+    reason,
+  });
+  if (error) throw error;
+}
+
+export async function fetchOpenReports() {
+  const { data, error } = await supabase
+    .from("reports")
+    .select("*, activities(id, name, city), reviews(id, text, rating), profiles(email)")
+    .eq("status", "open")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
+export async function resolveReport(reportId, status) {
+  const { error } = await supabase.from("reports").update({ status }).eq("id", reportId);
+  if (error) throw error;
+}
+
 /* ---------- PHOTO UPLOAD ---------- */
 
 export async function uploadPhoto(file, folder = "activities") {
