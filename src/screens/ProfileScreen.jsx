@@ -2,11 +2,10 @@ import React, { useState, useEffect } from "react";
 import {
   Globe, ArrowRight, ArrowLeft, MapPin, Star, Heart, LogOut, User as UserIcon, PlusCircle, MessageSquare,
 } from "lucide-react";
-import { fetchMyActivities, fetchMyReviews, fetchSavedActivities, signOut } from "../lib/api";
+import { fetchMyActivities, fetchMyReviews, fetchSavedActivities, signOut, fetchProfile } from "../lib/api";
 import Logo from "../components/Logo";
 import CategoryIllustration from "../components/CategoryIllustration";
-
-const ADMIN_EMAILS = ["harelm@gmail.com"];
+import { isAdminUser } from "../lib/adminConfig";
 
 const COPY = {
   he: {
@@ -63,13 +62,15 @@ export default function ProfileScreen({ lang, setLang, onBack, onSignedOut, onOp
   const [myReviews, setMyReviews] = useState([]);
   const [saved, setSaved] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [myProfile, setMyProfile] = useState(null);
 
   useEffect(() => {
-    Promise.all([fetchMyActivities(user.id), fetchMyReviews(user.id), fetchSavedActivities(user.id)])
-      .then(([acts, revs, savedActs]) => {
+    Promise.all([fetchMyActivities(user.id), fetchMyReviews(user.id), fetchSavedActivities(user.id), fetchProfile(user.id)])
+      .then(([acts, revs, savedActs, profile]) => {
         setMyActivities(acts);
         setMyReviews(revs);
         setSaved(savedActs);
+        setMyProfile(profile);
       })
       .finally(() => setLoading(false));
   }, [user.id]);
@@ -197,7 +198,7 @@ export default function ProfileScreen({ lang, setLang, onBack, onSignedOut, onOp
           </>
         )}
 
-        {ADMIN_EMAILS.includes(user.email) && (
+        {isAdminUser(user, myProfile) && (
           <button onClick={onAdminImport} className="w-full flex items-center justify-center gap-2 text-sm font-medium text-primaryDk mt-10 py-3 border border-line rounded-xl">
             <UserIcon size={16} /> {t.adminImport}
           </button>
