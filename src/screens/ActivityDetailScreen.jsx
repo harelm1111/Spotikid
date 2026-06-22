@@ -52,6 +52,22 @@ const COPY = {
   },
 };
 
+function GoogleMapsLink({ activity, label }) {
+  const url = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(activity.name + " " + activity.city);
+  return React.createElement(
+    "a",
+    {
+      href: url,
+      target: "_blank",
+      rel: "noopener noreferrer",
+      className: "flex items-center gap-1.5 text-xs font-medium rounded-full px-3 py-1.5 border border-line text-inkSoft",
+    },
+    React.createElement(ExternalLink, { size: 12 }),
+    " ",
+    label
+  );
+}
+
 function StarRating({ value, onChange, size = 22 }) {
   return (
     <div className="flex gap-1">
@@ -196,14 +212,7 @@ export default function ActivityDetailScreen({ lang, setLang, onBack, isLoggedIn
           >
             <History size={12} /> {t.viewHistory}
           </button>
-          
-            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.name + " " + activity.city)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-xs font-medium rounded-full px-3 py-1.5 border border-line text-inkSoft"
-          >
-            <ExternalLink size={12} /> {t.openInMaps}
-          </a>
+          <GoogleMapsLink activity={activity} label={t.openInMaps} />
         </div>
 
         <h2 className="font-bold mb-2 text-ink">{t.about}</h2>
