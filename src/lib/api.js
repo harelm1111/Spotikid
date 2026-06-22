@@ -164,6 +164,15 @@ export async function upsertActivitiesBulk(activities) {
   return data;
 }
 
+export async function fetchAllUsers() {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
 /* ---------- PHOTO UPLOAD ---------- */
 
 export async function uploadPhoto(file, folder = "activities") {
