@@ -149,6 +149,7 @@ export default function App() {
           user={user}
           onEdit={goEditActivity}
           onViewHistory={goHistory}
+          onDeleted={goHome}
         />
       )}
     </>
