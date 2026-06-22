@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import {
   Globe, ArrowRight, ArrowLeft, MapPin, Star, Heart, LogOut, User as UserIcon, PlusCircle, MessageSquare,
-  Users, UserPlus, Calendar, Shield, ShieldOff, Lock, Eye, Clock,
+  Users, UserPlus, Calendar, Shield, ShieldOff, Lock, Eye, Clock, Flag, Check, X,
 } from "lucide-react";
 import {
   fetchMyActivities, fetchMyReviews, fetchSavedActivities, signOut, fetchProfile,
   fetchAllUsers, setUserAdminStatus, fetchMostViewedActivities, fetchTotalTimeSpentByUser,
+  fetchOpenReports, resolveReport, deleteActivity, deleteReview,
 } from "../lib/api";
 import Logo from "../components/Logo";
 import CategoryIllustration from "../components/CategoryIllustration";
@@ -42,6 +43,14 @@ const COPY = {
     timeSpentTitle: "זמן צפייה לפי משתמש",
     views: "צפיות",
     noViewsYet: "אין עדיין נתוני צפייה.",
+    reportsTitle: "דיווחים פתוחים",
+    noOpenReports: "אין דיווחים פתוחים כרגע.",
+    reportedActivity: "אטרקציה",
+    reportedReview: "ביקורת",
+    reportReason: "סיבת הדיווח",
+    reportedBy: "דווח על ידי",
+    dismiss: "סגירה ללא פעולה",
+    deleteContent: "מחיקת התוכן",
   },
   en: {
     dir: "ltr",
@@ -73,6 +82,14 @@ const COPY = {
     timeSpentTitle: "Time spent by user",
     views: "views",
     noViewsYet: "No view data yet.",
+    reportsTitle: "Open reports",
+    noOpenReports: "No open reports right now.",
+    reportedActivity: "Activity",
+    reportedReview: "Review",
+    reportReason: "Report reason",
+    reportedBy: "Reported by",
+    dismiss: "Dismiss",
+    deleteContent: "Delete content",
   },
 };
 
@@ -109,6 +126,7 @@ export default function ProfileScreen({ lang, setLang, onBack, onSignedOut, onOp
   const [allUsers, setAllUsers] = useState([]);
   const [mostViewed, setMostViewed] = useState([]);
   const [timeSpent, setTimeSpent] = useState([]);
+  const [openReports, setOpenReports] = useState([]);
   const [adminDataLoading, setAdminDataLoading] = useState(false);
 
   const amAdmin = isAdminUser(user, myProfile);
@@ -127,11 +145,12 @@ export default function ProfileScreen({ lang, setLang, onBack, onSignedOut, onOp
   useEffect(() => {
     if (!amAdmin) return;
     setAdminDataLoading(true);
-    Promise.all([fetchAllUsers(), fetchMostViewedActivities(10), fetchTotalTimeSpentByUser()])
-      .then(([users, viewed, time]) => {
+    Promise.all([fetchAllUsers(), fetchMostViewedActivities(10), fetchTotalTimeSpentByUser(), fetchOpenReports()])
+      .then(([users, viewed, time, reports]) => {
         setAllUsers(users);
         setMostViewed(viewed);
         setTimeSpent(time);
+        setOpenReports(reports);
       })
       .finally(() => setAdminDataLoading(false));
   }, [amAdmin]);
@@ -143,6 +162,29 @@ export default function ProfileScreen({ lang, setLang, onBack, onSignedOut, onOp
       setAllUsers((prev) => prev.map((u) => (u.id === targetUser.id ? { ...u, is_admin: !currentlyAdmin } : u)));
     } catch {
       // Silent failure is acceptable here; the button simply won't update.
+    }
+  };
+
+  const handleDismissReport = async (reportId) => {
+    try {
+      await resolveReport(reportId, "dismissed");
+      setOpenReports((prev) => prev.filter((r) => r.id !== reportId));
+    } catch {
+      // No-op on failure — report stays in the queue for retry.
+    }
+  };
+
+  const handleDeleteReportedContent = async (report) => {
+    try {
+      if (report.review_id) {
+        await deleteReview(report.review_id);
+      } else if (report.activity_id) {
+        await deleteActivity(report.activity_id);
+      }
+      await resolveReport(report.id, "resolved");
+      setOpenReports((prev) => prev.filter((r) => r.id !== report.id));
+    } catch {
+      // No-op on failure — report stays in the queue for retry.
     }
   };
 
@@ -191,6 +233,42 @@ export default function ProfileScreen({ lang, setLang, onBack, onSignedOut, onOp
               <div className="text-sm text-inkSoft">{t.loading}</div>
             ) : (
               <>
+                {/* Reports queue — shown first since it's the most actionable item */}
+                <div className="text-xs font-semibold text-inkSoft mb-2">{t.reportsTitle} {openReports.length > 0 && `(${openReports.length})`}</div>
+                {openReports.length === 0 ? (
+                  <p className="text-xs text-inkSoft mb-4">{t.noOpenReports}</p>
+                ) : (
+                  <div className="space-y-2 mb-4">
+                    {openReports.map((report) => (
+                      <div key={report.id} className="rounded-xl border border-red-200 bg-red-50 p-3">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-red-600 mb-1">
+                          <Flag size={11} />
+                          {report.activity_id ? t.reportedActivity : t.reportedReview}
+                        </div>
+                        <p className="text-sm text-ink mb-1">
+                          {report.activities?.name || report.reviews?.text || "—"}
+                        </p>
+                        <p className="text-xs text-inkSoft mb-1">{t.reportReason}: {report.reason}</p>
+                        <p className="text-xs text-inkSoft mb-2.5">{t.reportedBy}: {report.profiles?.email || "—"}</p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleDismissReport(report.id)}
+                            className="flex-1 flex items-center justify-center gap-1 text-xs font-medium rounded-full py-1.5 border border-line text-ink"
+                          >
+                            <X size={11} /> {t.dismiss}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteReportedContent(report)}
+                            className="flex-1 flex items-center justify-center gap-1 text-xs font-medium rounded-full py-1.5 bg-red-500 text-white"
+                          >
+                            <Check size={11} /> {t.deleteContent}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {/* User stats */}
                 <div className="grid grid-cols-3 gap-2 mb-4">
                   <div className="rounded-xl bg-tint p-3 text-center">
