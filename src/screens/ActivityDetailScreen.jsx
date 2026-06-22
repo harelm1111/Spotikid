@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   MapPin, Clock, Star, Globe, ArrowRight, ArrowLeft, Image as ImageIcon, Pencil, History, ExternalLink,
 } from "lucide-react";
-import { fetchActivityById, fetchReviews, createReview, uploadPhoto } from "../lib/api";
+import { fetchActivityById, fetchReviews, createReview, uploadPhoto, recordActivityView } from "../lib/api";
 import CategoryIllustration from "../components/CategoryIllustration";
 
 const COPY = {
@@ -99,6 +99,18 @@ export default function ActivityDetailScreen({ lang, setLang, onBack, isLoggedIn
       .finally(() => setLoading(false));
   }, [activityId]);
 
+  // Records how long the user spent on this activity's page, for the admin analytics view.
+  useEffect(() => {
+    if (!activityId || !user) return;
+    const startTime = Date.now();
+    return () => {
+      const durationSeconds = Math.round((Date.now() - startTime) / 1000);
+      if (durationSeconds > 1) {
+        recordActivityView(activityId, user.id, durationSeconds).catch(() => {});
+      }
+    };
+  }, [activityId, user]);
+
   const avgRating = reviews.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : null;
 
   const handleSubmitReview = async () => {
@@ -184,7 +196,12 @@ export default function ActivityDetailScreen({ lang, setLang, onBack, isLoggedIn
           >
             <History size={12} /> {t.viewHistory}
           </button>
-          <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.name + " " + activity.city)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs font-medium rounded-full px-3 py-1.5 border border-line text-inkSoft">
+          
+            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.name + " " + activity.city)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-xs font-medium rounded-full px-3 py-1.5 border border-line text-inkSoft"
+          >
             <ExternalLink size={12} /> {t.openInMaps}
           </a>
         </div>
