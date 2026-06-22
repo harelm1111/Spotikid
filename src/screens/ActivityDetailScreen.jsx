@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
 import {
-  MapPin, Clock, Star, Globe, ArrowRight, ArrowLeft, Image as ImageIcon, Pencil, History, ExternalLink,
+  MapPin, Clock, Star, Globe, ArrowRight, ArrowLeft, Image as ImageIcon, Pencil, History, ExternalLink, Trash2,
 } from "lucide-react";
-import { fetchActivityById, fetchReviews, createReview, uploadPhoto, recordActivityView } from "../lib/api";
+import { fetchActivityById, fetchReviews, createReview, uploadPhoto, recordActivityView, deleteActivity, deleteReview, fetchProfile } from "../lib/api";
 import CategoryIllustration from "../components/CategoryIllustration";
+import ReportButton from "../components/ReportButton";
+import { isAdminUser } from "../lib/adminConfig";
 
 const COPY = {
   he: {
@@ -27,6 +29,12 @@ const COPY = {
     editActivity: "ערוך פרטים",
     viewHistory: "היסטוריה",
     openInMaps: "ראו ביקורות ב-Google Maps",
+    deleteActivity: "מחיקת אטרקציה",
+    confirmDeleteActivity: "למחוק את האטרקציה הזו לצמיתות?",
+    deleteReview: "מחיקת ביקורת",
+    confirmDeleteReview: "למחוק את הביקורת הזו?",
+    cancel: "ביטול",
+    confirm: "מחיקה",
   },
   en: {
     dir: "ltr",
@@ -49,6 +57,12 @@ const COPY = {
     editActivity: "Edit details",
     viewHistory: "History",
     openInMaps: "See reviews on Google Maps",
+    deleteActivity: "Delete activity",
+    confirmDeleteActivity: "Permanently delete this activity?",
+    deleteReview: "Delete review",
+    confirmDeleteReview: "Delete this review?",
+    cancel: "Cancel",
+    confirm: "Delete",
   },
 };
 
@@ -90,7 +104,7 @@ function timeAgo(dateStr, lang) {
   return lang === "he" ? `לפני ${months} חודשים` : `${months} months ago`;
 }
 
-export default function ActivityDetailScreen({ lang, setLang, onBack, isLoggedIn, onRequireLogin, activityId, user, onEdit, onViewHistory }) {
+export default function ActivityDetailScreen({ lang, setLang, onBack, isLoggedIn, onRequireLogin, activityId, user, onEdit, onViewHistory, onDeleted }) {
   const t = COPY[lang];
   const isRTL = t.dir === "rtl";
   const BackIcon = isRTL ? ArrowRight : ArrowLeft;
@@ -98,6 +112,15 @@ export default function ActivityDetailScreen({ lang, setLang, onBack, isLoggedIn
   const [activity, setActivity] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [myProfile, setMyProfile] = useState(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [confirmingReviewDelete, setConfirmingReviewDelete] = useState(null);
+
+  const amAdmin = isAdminUser(user, myProfile);
+
+  useEffect(() => {
+    if (isLoggedIn && user) fetchProfile(user.id).then(setMyProfile).catch(() => {});
+  }, [isLoggedIn, user]);
 
   const [myRating, setMyRating] = useState(0);
   const [myText, setMyText] = useState("");
@@ -128,6 +151,24 @@ export default function ActivityDetailScreen({ lang, setLang, onBack, isLoggedIn
   }, [activityId, user]);
 
   const avgRating = reviews.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : null;
+
+  const handleDeleteActivity = async () => {
+    try {
+      await deleteActivity(activityId);
+      onDeleted();
+    } catch {
+      setConfirmingDelete(false);
+    }
+  };
+
+  const handleDeleteReview = async (reviewId) => {
+    try {
+      await deleteReview(reviewId);
+      setReviews((prev) => prev.filter((r) => r.id !== reviewId));
+    } finally {
+      setConfirmingReviewDelete(null);
+    }
+  };
 
   const handleSubmitReview = async () => {
     setReviewError("");
@@ -213,7 +254,32 @@ export default function ActivityDetailScreen({ lang, setLang, onBack, isLoggedIn
             <History size={12} /> {t.viewHistory}
           </button>
           <GoogleMapsLink activity={activity} label={t.openInMaps} />
+          <ReportButton lang={lang} isRTL={isRTL} activityId={activityId} userId={user?.id} onRequireLogin={onRequireLogin} />
+          {amAdmin && (
+            <button
+              onClick={() => setConfirmingDelete(true)}
+              className="flex items-center gap-1.5 text-xs font-medium rounded-full px-3 py-1.5 border border-red-200 text-red-500"
+            >
+              <Trash2 size={12} /> {t.deleteActivity}
+            </button>
+          )}
         </div>
+
+        {confirmingDelete && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4" onClick={() => setConfirmingDelete(false)}>
+            <div dir={isRTL ? "rtl" : "ltr"} className="bg-surface rounded-2xl p-5 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+              <p className="text-sm text-ink mb-4">{t.confirmDeleteActivity}</p>
+              <div className="flex gap-2">
+                <button onClick={() => setConfirmingDelete(false)} className="flex-1 text-sm font-medium rounded-full py-2.5 border border-line text-ink">
+                  {t.cancel}
+                </button>
+                <button onClick={handleDeleteActivity} className="flex-1 text-sm font-semibold rounded-full py-2.5 bg-red-500 text-white">
+                  {t.confirm}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <h2 className="font-bold mb-2 text-ink">{t.about}</h2>
         <p className="text-sm leading-relaxed mb-7 text-ink">{activity.description}</p>
@@ -271,6 +337,33 @@ export default function ActivityDetailScreen({ lang, setLang, onBack, isLoggedIn
                   <StarRating value={r.rating} size={14} />
                   {r.text && <p className="text-sm leading-relaxed mt-2 text-ink">{r.text}</p>}
                   {r.photo_url && <img src={r.photo_url} alt="" className="w-20 h-20 rounded-lg mt-2.5 object-cover" />}
+                  <div className="flex items-center gap-2 mt-2.5">
+                    <ReportButton lang={lang} isRTL={isRTL} reviewId={r.id} userId={user?.id} onRequireLogin={onRequireLogin} />
+                    {amAdmin && (
+                      <button
+                        onClick={() => setConfirmingReviewDelete(r.id)}
+                        className="flex items-center gap-1.5 text-xs font-medium rounded-full px-3 py-1.5 border border-red-200 text-red-500"
+                      >
+                        <Trash2 size={12} /> {t.deleteReview}
+                      </button>
+                    )}
+                  </div>
+
+                  {confirmingReviewDelete === r.id && (
+                    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4" onClick={() => setConfirmingReviewDelete(null)}>
+                      <div dir={isRTL ? "rtl" : "ltr"} className="bg-surface rounded-2xl p-5 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+                        <p className="text-sm text-ink mb-4">{t.confirmDeleteReview}</p>
+                        <div className="flex gap-2">
+                          <button onClick={() => setConfirmingReviewDelete(null)} className="flex-1 text-sm font-medium rounded-full py-2.5 border border-line text-ink">
+                            {t.cancel}
+                          </button>
+                          <button onClick={() => handleDeleteReview(r.id)} className="flex-1 text-sm font-semibold rounded-full py-2.5 bg-red-500 text-white">
+                            {t.confirm}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })
