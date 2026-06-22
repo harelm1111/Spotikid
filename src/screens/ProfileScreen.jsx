@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from "react";
 import {
   Globe, ArrowRight, ArrowLeft, MapPin, Star, Heart, LogOut, User as UserIcon, PlusCircle, MessageSquare,
+  Users, UserPlus, Calendar, Shield, ShieldOff, Lock, Eye, Clock,
 } from "lucide-react";
-import { fetchMyActivities, fetchMyReviews, fetchSavedActivities, signOut, fetchProfile } from "../lib/api";
+import {
+  fetchMyActivities, fetchMyReviews, fetchSavedActivities, signOut, fetchProfile,
+  fetchAllUsers, setUserAdminStatus, fetchMostViewedActivities, fetchTotalTimeSpentByUser,
+} from "../lib/api";
 import Logo from "../components/Logo";
 import CategoryIllustration from "../components/CategoryIllustration";
-import { isAdminUser } from "../lib/adminConfig";
+import { isSuperAdmin, isAdminUser } from "../lib/adminConfig";
 
 const COPY = {
   he: {
@@ -22,7 +26,22 @@ const COPY = {
     signOut: "התנתקות",
     loading: "טוען...",
     yourReviewOn: "הביקורת שלך על",
-    adminImport: "ייבוא אטרקציות (מנהל)",
+    adminImport: "ייבוא אטרקציות",
+    adminPanel: "ניהול האפליקציה",
+    usersTitle: "סטטיסטיקת משתמשים",
+    totalUsers: "סך משתמשים",
+    newThisWeek: "נרשמו השבוע",
+    newThisMonth: "נרשמו החודש",
+    recentUsers: "משתמשים אחרונים",
+    manageAdmins: "ניהול מנהלים",
+    makeAdmin: "הפוך למנהל",
+    removeAdmin: "הסר ניהול",
+    superAdmin: "מנהל ראשי",
+    adminBadge: "מנהל",
+    mostViewed: "האטרקציות הנצפות ביותר",
+    timeSpentTitle: "זמן צפייה לפי משתמש",
+    views: "צפיות",
+    noViewsYet: "אין עדיין נתוני צפייה.",
   },
   en: {
     dir: "ltr",
@@ -38,7 +57,22 @@ const COPY = {
     signOut: "Sign out",
     loading: "Loading...",
     yourReviewOn: "Your review on",
-    adminImport: "Import activities (admin)",
+    adminImport: "Import activities",
+    adminPanel: "App management",
+    usersTitle: "User statistics",
+    totalUsers: "Total users",
+    newThisWeek: "Joined this week",
+    newThisMonth: "Joined this month",
+    recentUsers: "Recent users",
+    manageAdmins: "Manage admins",
+    makeAdmin: "Make admin",
+    removeAdmin: "Remove admin",
+    superAdmin: "Super admin",
+    adminBadge: "Admin",
+    mostViewed: "Most viewed activities",
+    timeSpentTitle: "Time spent by user",
+    views: "views",
+    noViewsYet: "No view data yet.",
   },
 };
 
@@ -50,6 +84,13 @@ function StarRow({ value }) {
       ))}
     </div>
   );
+}
+
+function formatDuration(totalSeconds, lang) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes === 0) return lang === "he" ? `${seconds} שנ׳` : `${seconds}s`;
+  return lang === "he" ? `${minutes} דק׳ ${seconds} שנ׳` : `${minutes}m ${seconds}s`;
 }
 
 export default function ProfileScreen({ lang, setLang, onBack, onSignedOut, onOpenActivity, onAdd, onAdminImport, user }) {
@@ -64,6 +105,14 @@ export default function ProfileScreen({ lang, setLang, onBack, onSignedOut, onOp
   const [loading, setLoading] = useState(true);
   const [myProfile, setMyProfile] = useState(null);
 
+  // Admin panel data — only fetched/shown for admins, after we know admin status.
+  const [allUsers, setAllUsers] = useState([]);
+  const [mostViewed, setMostViewed] = useState([]);
+  const [timeSpent, setTimeSpent] = useState([]);
+  const [adminDataLoading, setAdminDataLoading] = useState(false);
+
+  const amAdmin = isAdminUser(user, myProfile);
+
   useEffect(() => {
     Promise.all([fetchMyActivities(user.id), fetchMyReviews(user.id), fetchSavedActivities(user.id), fetchProfile(user.id)])
       .then(([acts, revs, savedActs, profile]) => {
@@ -74,6 +123,28 @@ export default function ProfileScreen({ lang, setLang, onBack, onSignedOut, onOp
       })
       .finally(() => setLoading(false));
   }, [user.id]);
+
+  useEffect(() => {
+    if (!amAdmin) return;
+    setAdminDataLoading(true);
+    Promise.all([fetchAllUsers(), fetchMostViewedActivities(10), fetchTotalTimeSpentByUser()])
+      .then(([users, viewed, time]) => {
+        setAllUsers(users);
+        setMostViewed(viewed);
+        setTimeSpent(time);
+      })
+      .finally(() => setAdminDataLoading(false));
+  }, [amAdmin]);
+
+  const handleToggleAdmin = async (targetUser, currentlyAdmin) => {
+    if (isSuperAdmin(targetUser)) return;
+    try {
+      await setUserAdminStatus(targetUser.id, !currentlyAdmin);
+      setAllUsers((prev) => prev.map((u) => (u.id === targetUser.id ? { ...u, is_admin: !currentlyAdmin } : u)));
+    } catch {
+      // Silent failure is acceptable here; the button simply won't update.
+    }
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -110,6 +181,117 @@ export default function ProfileScreen({ lang, setLang, onBack, onSignedOut, onOp
             <div className="text-sm text-inkSoft">{t.memberSince} {joinDate}</div>
           </div>
         </div>
+
+        {/* Admin panel — visible only to admins, placed right at the top near the name */}
+        {amAdmin && (
+          <div className="rounded-2xl border border-line bg-surface p-4 mb-6">
+            <h2 className="font-bold text-ink mb-3">{t.adminPanel}</h2>
+
+            {adminDataLoading ? (
+              <div className="text-sm text-inkSoft">{t.loading}</div>
+            ) : (
+              <>
+                {/* User stats */}
+                <div className="grid grid-cols-3 gap-2 mb-4">
+                  <div className="rounded-xl bg-tint p-3 text-center">
+                    <Users size={16} className="text-primaryDk mx-auto mb-1" />
+                    <div className="font-bold text-lg text-ink">{allUsers.length}</div>
+                    <div className="text-[11px] text-inkSoft">{t.totalUsers}</div>
+                  </div>
+                  <div className="rounded-xl bg-tint p-3 text-center">
+                    <UserPlus size={16} className="text-primaryDk mx-auto mb-1" />
+                    <div className="font-bold text-lg text-ink">
+                      {allUsers.filter((u) => new Date(u.created_at) > new Date(Date.now() - 7 * 86400000)).length}
+                    </div>
+                    <div className="text-[11px] text-inkSoft">{t.newThisWeek}</div>
+                  </div>
+                  <div className="rounded-xl bg-tint p-3 text-center">
+                    <Calendar size={16} className="text-primaryDk mx-auto mb-1" />
+                    <div className="font-bold text-lg text-ink">
+                      {allUsers.filter((u) => new Date(u.created_at) > new Date(Date.now() - 30 * 86400000)).length}
+                    </div>
+                    <div className="text-[11px] text-inkSoft">{t.newThisMonth}</div>
+                  </div>
+                </div>
+
+                {/* Most viewed activities */}
+                <div className="text-xs font-semibold text-inkSoft mb-2">{t.mostViewed}</div>
+                {mostViewed.length === 0 ? (
+                  <p className="text-xs text-inkSoft mb-4">{t.noViewsYet}</p>
+                ) : (
+                  <div className="space-y-1.5 mb-4">
+                    {mostViewed.map((a, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm border-b border-line pb-1.5">
+                        <span className="text-ink truncate">{a.name} <span className="text-inkSoft text-xs">({a.city})</span></span>
+                        <span className="flex items-center gap-1 text-xs text-primaryDk shrink-0">
+                          <Eye size={11} /> {a.count} {t.views}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Time spent by user */}
+                <div className="text-xs font-semibold text-inkSoft mb-2">{t.timeSpentTitle}</div>
+                {timeSpent.length === 0 ? (
+                  <p className="text-xs text-inkSoft mb-4">{t.noViewsYet}</p>
+                ) : (
+                  <div className="space-y-1.5 mb-4">
+                    {timeSpent.slice(0, 10).map((u, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm border-b border-line pb-1.5">
+                        <span className="text-ink truncate">{u.email}</span>
+                        <span className="flex items-center gap-1 text-xs text-primaryDk shrink-0">
+                          <Clock size={11} /> {formatDuration(u.seconds, lang)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* User list + admin management */}
+                <div className="text-xs font-semibold text-inkSoft mb-2">{t.recentUsers}</div>
+                <div className="space-y-2 max-h-72 overflow-y-auto mb-4">
+                  {allUsers.slice(0, 30).map((u) => {
+                    const userIsSuperAdmin = isSuperAdmin(u);
+                    return (
+                      <div key={u.id} className="flex items-center justify-between text-sm border-b border-line pb-2 gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-ink truncate">{u.email}</span>
+                          {userIsSuperAdmin && (
+                            <span className="flex items-center gap-1 text-[10px] font-bold rounded-full px-2 py-0.5 bg-primaryDk text-white shrink-0">
+                              <Lock size={9} /> {t.superAdmin}
+                            </span>
+                          )}
+                          {!userIsSuperAdmin && u.is_admin && (
+                            <span className="text-[10px] font-bold rounded-full px-2 py-0.5 bg-tint text-primaryDk shrink-0">{t.adminBadge}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs text-inkSoft">
+                            {new Date(u.created_at).toLocaleDateString(lang === "he" ? "he-IL" : "en-US")}
+                          </span>
+                          {!userIsSuperAdmin && (
+                            <button
+                              onClick={() => handleToggleAdmin(u, u.is_admin)}
+                              className={`flex items-center gap-1 text-[11px] font-medium rounded-full px-2 py-1 border ${u.is_admin ? "border-red-200 text-red-500" : "border-line text-primaryDk"}`}
+                            >
+                              {u.is_admin ? <ShieldOff size={11} /> : <Shield size={11} />}
+                              {u.is_admin ? t.removeAdmin : t.makeAdmin}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <button onClick={onAdminImport} className="w-full text-sm font-semibold rounded-full px-5 py-2.5 bg-primary text-white">
+                  {t.adminImport}
+                </button>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex gap-2 mb-5 overflow-x-auto scrollbar-hide">
@@ -196,12 +378,6 @@ export default function ProfileScreen({ lang, setLang, onBack, onSignedOut, onOp
               )
             )}
           </>
-        )}
-
-        {isAdminUser(user, myProfile) && (
-          <button onClick={onAdminImport} className="w-full flex items-center justify-center gap-2 text-sm font-medium text-primaryDk mt-10 py-3 border border-line rounded-xl">
-            <UserIcon size={16} /> {t.adminImport}
-          </button>
         )}
 
         <button onClick={handleSignOut} className="w-full flex items-center justify-center gap-2 text-sm font-medium text-red-500 mt-4 py-3">
