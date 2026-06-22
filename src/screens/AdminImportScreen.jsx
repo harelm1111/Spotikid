@@ -1,6 +1,6 @@
-import React, { useState } from "react";
-import { Globe, ArrowRight, ArrowLeft, Upload, Download, Check, AlertTriangle } from "lucide-react";
-import { createActivitiesBulk, upsertActivitiesBulk, fetchActivities } from "../lib/api";
+import React, { useState, useEffect } from "react";
+import { Globe, ArrowRight, ArrowLeft, Upload, Download, Check, AlertTriangle, Users, UserPlus, Calendar } from "lucide-react";
+import { createActivitiesBulk, upsertActivitiesBulk, fetchActivities, fetchAllUsers } from "../lib/api";
 
 const ADMIN_EMAILS = ["harelm@gmail.com"];
 
@@ -32,6 +32,13 @@ const COPY = {
     backHome: "חזרה לעמוד הבית",
     invalidCategory: "קטגוריה לא תקינה",
     missingField: "שדה חובה חסר",
+    usersTitle: "סטטיסטיקת משתמשים",
+    totalUsers: "סך משתמשים רשומים",
+    newThisWeek: "נרשמו השבוע",
+    newThisMonth: "נרשמו החודש",
+    recentUsers: "משתמשים אחרונים",
+    joinedOn: "נרשם בתאריך",
+    loading: "טוען...",
   },
   en: {
     dir: "ltr",
@@ -58,6 +65,13 @@ const COPY = {
     backHome: "Back to home",
     invalidCategory: "Invalid category",
     missingField: "Missing required field",
+    usersTitle: "User statistics",
+    totalUsers: "Total registered users",
+    newThisWeek: "Joined this week",
+    newThisMonth: "Joined this month",
+    recentUsers: "Recent users",
+    joinedOn: "Joined on",
+    loading: "Loading...",
   },
 };
 
@@ -123,6 +137,15 @@ export default function AdminImportScreen({ lang, setLang, onBack, user }) {
   const [stage, setStage] = useState("idle");
   const [rows, setRows] = useState([]);
   const [error, setError] = useState("");
+  const [users, setUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetchAllUsers()
+      .then(setUsers)
+      .finally(() => setUsersLoading(false));
+  }, [isAdmin]);
 
   if (!isAdmin) {
     return (
@@ -222,6 +245,12 @@ export default function AdminImportScreen({ lang, setLang, onBack, user }) {
   const newCount = validRows.filter((r) => !r.isUpdate).length;
   const updateCount = validRows.filter((r) => r.isUpdate).length;
 
+  const now = new Date();
+  const oneWeekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+  const oneMonthAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+  const newThisWeekCount = users.filter((u) => new Date(u.created_at) > oneWeekAgo).length;
+  const newThisMonthCount = users.filter((u) => new Date(u.created_at) > oneMonthAgo).length;
+
   return (
     <div dir={t.dir} className="min-h-screen bg-bg">
       <div className="sticky top-0 backdrop-blur-sm border-b border-line px-4 py-3 flex items-center justify-between z-10 bg-bg/95">
@@ -235,6 +264,46 @@ export default function AdminImportScreen({ lang, setLang, onBack, user }) {
 
       <div className="max-w-2xl mx-auto px-4 py-6">
         {error && <div className="mb-4 text-sm rounded-xl px-3.5 py-2.5 bg-red-50 text-red-600 border border-red-200">{error}</div>}
+
+        {/* User stats section */}
+        <div className="rounded-2xl border border-line bg-surface p-4 mb-6">
+          <h2 className="font-bold text-ink mb-3">{t.usersTitle}</h2>
+          {usersLoading ? (
+            <div className="text-sm text-inkSoft">{t.loading}</div>
+          ) : (
+            <>
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                <div className="rounded-xl bg-tint p-3 text-center">
+                  <Users size={16} className="text-primaryDk mx-auto mb-1" />
+                  <div className="font-bold text-lg text-ink">{users.length}</div>
+                  <div className="text-[11px] text-inkSoft">{t.totalUsers}</div>
+                </div>
+                <div className="rounded-xl bg-tint p-3 text-center">
+                  <UserPlus size={16} className="text-primaryDk mx-auto mb-1" />
+                  <div className="font-bold text-lg text-ink">{newThisWeekCount}</div>
+                  <div className="text-[11px] text-inkSoft">{t.newThisWeek}</div>
+                </div>
+                <div className="rounded-xl bg-tint p-3 text-center">
+                  <Calendar size={16} className="text-primaryDk mx-auto mb-1" />
+                  <div className="font-bold text-lg text-ink">{newThisMonthCount}</div>
+                  <div className="text-[11px] text-inkSoft">{t.newThisMonth}</div>
+                </div>
+              </div>
+
+              <div className="text-xs font-semibold text-inkSoft mb-2">{t.recentUsers}</div>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {users.slice(0, 20).map((u) => (
+                  <div key={u.id} className="flex items-center justify-between text-sm border-b border-line pb-2">
+                    <span className="text-ink">{u.email}</span>
+                    <span className="text-xs text-inkSoft">
+                      {new Date(u.created_at).toLocaleDateString(lang === "he" ? "he-IL" : "en-US")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
 
         <div className="rounded-2xl border border-line bg-surface p-4 mb-6">
           <h2 className="font-bold text-ink mb-1.5">{t.exportTitle}</h2>
