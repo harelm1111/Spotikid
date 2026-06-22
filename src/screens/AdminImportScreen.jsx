@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Globe, ArrowRight, ArrowLeft, Upload, Download, Check, AlertTriangle, Users, UserPlus, Calendar } from "lucide-react";
-import { createActivitiesBulk, upsertActivitiesBulk, fetchActivities, fetchAllUsers } from "../lib/api";
-
-const ADMIN_EMAILS = ["harelm@gmail.com"];
+import { Globe, ArrowRight, ArrowLeft, Upload, Download, Check, AlertTriangle, Users, UserPlus, Calendar, Shield, ShieldOff, Lock } from "lucide-react";
+import { createActivitiesBulk, upsertActivitiesBulk, fetchActivities, fetchAllUsers, setUserAdminStatus } from "../lib/api";
+import { isSuperAdmin, isAdminUser } from "../lib/adminConfig";
 
 const VALID_CATEGORIES = ["nature", "water", "culture", "outdoor", "games"];
 
@@ -39,6 +38,11 @@ const COPY = {
     recentUsers: "משתמשים אחרונים",
     joinedOn: "נרשם בתאריך",
     loading: "טוען...",
+    manageAdmins: "ניהול מנהלים",
+    makeAdmin: "הפוך למנהל",
+    removeAdmin: "הסר ניהול",
+    superAdmin: "מנהל ראשי",
+    adminBadge: "מנהל",
   },
   en: {
     dir: "ltr",
@@ -72,6 +76,11 @@ const COPY = {
     recentUsers: "Recent users",
     joinedOn: "Joined on",
     loading: "Loading...",
+    manageAdmins: "Manage admins",
+    makeAdmin: "Make admin",
+    removeAdmin: "Remove admin",
+    superAdmin: "Super admin",
+    adminBadge: "Admin",
   },
 };
 
@@ -132,20 +141,20 @@ export default function AdminImportScreen({ lang, setLang, onBack, user }) {
   const isRTL = t.dir === "rtl";
   const BackIcon = isRTL ? ArrowRight : ArrowLeft;
 
-  const isAdmin = user && ADMIN_EMAILS.includes(user.email);
-
   const [stage, setStage] = useState("idle");
   const [rows, setRows] = useState([]);
   const [error, setError] = useState("");
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(true);
 
+  const myProfile = users.find((u) => u.id === user?.id);
+  const isAdmin = isAdminUser(user, myProfile);
+
   useEffect(() => {
-    if (!isAdmin) return;
     fetchAllUsers()
       .then(setUsers)
       .finally(() => setUsersLoading(false));
-  }, [isAdmin]);
+  }, []);
 
   if (!isAdmin) {
     return (
@@ -154,6 +163,17 @@ export default function AdminImportScreen({ lang, setLang, onBack, user }) {
       </div>
     );
   }
+
+  const handleToggleAdmin = async (targetUser, currentlyAdmin) => {
+    // The super-admin can never be demoted, no matter who clicks the button.
+    if (isSuperAdmin(targetUser)) return;
+    try {
+      await setUserAdminStatus(targetUser.id, !currentlyAdmin);
+      setUsers((prev) => prev.map((u) => (u.id === targetUser.id ? { ...u, is_admin: !currentlyAdmin } : u)));
+    } catch (err) {
+      setError(err.message);
+    }
+  };
 
   const handleExport = async () => {
     setError("");
@@ -291,15 +311,40 @@ export default function AdminImportScreen({ lang, setLang, onBack, user }) {
               </div>
 
               <div className="text-xs font-semibold text-inkSoft mb-2">{t.recentUsers}</div>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {users.slice(0, 20).map((u) => (
-                  <div key={u.id} className="flex items-center justify-between text-sm border-b border-line pb-2">
-                    <span className="text-ink">{u.email}</span>
-                    <span className="text-xs text-inkSoft">
-                      {new Date(u.created_at).toLocaleDateString(lang === "he" ? "he-IL" : "en-US")}
-                    </span>
-                  </div>
-                ))}
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                {users.slice(0, 30).map((u) => {
+                  const userIsSuperAdmin = isSuperAdmin(u);
+                  const userIsAdmin = userIsSuperAdmin || u.is_admin;
+                  return (
+                    <div key={u.id} className="flex items-center justify-between text-sm border-b border-line pb-2 gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-ink truncate">{u.email}</span>
+                        {userIsSuperAdmin && (
+                          <span className="flex items-center gap-1 text-[10px] font-bold rounded-full px-2 py-0.5 bg-primaryDk text-white shrink-0">
+                            <Lock size={9} /> {t.superAdmin}
+                          </span>
+                        )}
+                        {!userIsSuperAdmin && u.is_admin && (
+                          <span className="text-[10px] font-bold rounded-full px-2 py-0.5 bg-tint text-primaryDk shrink-0">{t.adminBadge}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs text-inkSoft">
+                          {new Date(u.created_at).toLocaleDateString(lang === "he" ? "he-IL" : "en-US")}
+                        </span>
+                        {isAdmin && !userIsSuperAdmin && (
+                          <button
+                            onClick={() => handleToggleAdmin(u, u.is_admin)}
+                            className={`flex items-center gap-1 text-[11px] font-medium rounded-full px-2 py-1 border ${u.is_admin ? "border-red-200 text-red-500" : "border-line text-primaryDk"}`}
+                          >
+                            {u.is_admin ? <ShieldOff size={11} /> : <Shield size={11} />}
+                            {u.is_admin ? t.removeAdmin : t.makeAdmin}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </>
           )}
