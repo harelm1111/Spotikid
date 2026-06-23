@@ -7,7 +7,7 @@ const COPY = {
   he: {
     dir: "rtl",
     loginTitle: "ברוכים השבים",
-    loginSub: "התחברו כדי להגיב, לדרג ולהוסיף אטרקציות",
+    loginSub: "התחברו כדי להגיב, לדרג ולהוסיף מקומות",
     signupTitle: "יוצרים חשבון",
     signupSub: "כמה שניות, וסיימנו",
     email: "אימייל",
@@ -27,7 +27,7 @@ const COPY = {
   en: {
     dir: "ltr",
     loginTitle: "Welcome back",
-    loginSub: "Log in to comment, rate, and add activities",
+    loginSub: "Log in to comment, rate, and add places",
     signupTitle: "Create your account",
     signupSub: "Takes a few seconds",
     email: "Email",

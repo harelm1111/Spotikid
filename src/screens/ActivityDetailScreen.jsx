@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
-  MapPin, Clock, Star, Globe, ArrowRight, ArrowLeft, Image as ImageIcon, Pencil, History, ExternalLink, Trash2,
+  MapPin, Clock, Star, Globe, ArrowRight, ArrowLeft, Image as ImageIcon,
+  Pencil, History, ExternalLink, Trash2, Calendar, Phone,
 } from "lucide-react";
 import { fetchActivityById, fetchReviews, createReview, uploadPhoto, recordActivityView, deleteActivity, deleteReview, fetchProfile } from "../lib/api";
 import CategoryIllustration from "../components/CategoryIllustration";
@@ -14,7 +15,7 @@ const COPY = {
     reviews: "ביקורות",
     writeReview: "כתיבת ביקורת",
     yourRating: "הדירוג שלך",
-    reviewPh: "שתפו הורים אחרים בחוויה שלכם...",
+    reviewPh: "שתפו אחרים בחוויה שלכם...",
     addReviewPhoto: "הוספת תמונה לביקורת",
     photoAdded: "תמונה נבחרה",
     submitReview: "שליחת ביקורת",
@@ -24,13 +25,19 @@ const COPY = {
     noReviewsYet: "אין עדיין ביקורות. היו הראשונים לכתוב!",
     noRatingsYet: "אין דירוגים עדיין",
     ratingRequired: "בחרו דירוג לפני השליחה",
-    anonymous: "הורה",
+    anonymous: "משתמש",
     justNow: "הרגע",
     editActivity: "ערוך פרטים",
     viewHistory: "היסטוריה",
     openInMaps: "ראו ביקורות ב-Google Maps",
-    deleteActivity: "מחיקת אטרקציה",
-    confirmDeleteActivity: "למחוק את האטרקציה הזו לצמיתות?",
+    eventDate: "תאריך",
+    eventEnd: "עד",
+    suitableFor: "מתאים ל",
+    price: "מחיר",
+    phone: "טלפון",
+    website: "אתר",
+    deleteActivity: "מחיקת מקום",
+    confirmDeleteActivity: "למחוק את המקום הזה לצמיתות?",
     deleteReview: "מחיקת ביקורת",
     confirmDeleteReview: "למחוק את הביקורת הזו?",
     cancel: "ביטול",
@@ -42,7 +49,7 @@ const COPY = {
     reviews: "Reviews",
     writeReview: "Write a review",
     yourRating: "Your rating",
-    reviewPh: "Share your experience with other parents...",
+    reviewPh: "Share your experience...",
     addReviewPhoto: "Add a photo to your review",
     photoAdded: "Photo added",
     submitReview: "Submit review",
@@ -52,13 +59,19 @@ const COPY = {
     noReviewsYet: "No reviews yet. Be the first to write one!",
     noRatingsYet: "No ratings yet",
     ratingRequired: "Pick a rating before submitting",
-    anonymous: "Parent",
+    anonymous: "Guest",
     justNow: "Just now",
     editActivity: "Edit details",
     viewHistory: "History",
     openInMaps: "See reviews on Google Maps",
-    deleteActivity: "Delete activity",
-    confirmDeleteActivity: "Permanently delete this activity?",
+    eventDate: "Date",
+    eventEnd: "until",
+    suitableFor: "Good for",
+    price: "Price",
+    phone: "Phone",
+    website: "Website",
+    deleteActivity: "Delete place",
+    confirmDeleteActivity: "Permanently delete this place?",
     deleteReview: "Delete review",
     confirmDeleteReview: "Delete this review?",
     cancel: "Cancel",
@@ -102,6 +115,59 @@ function timeAgo(dateStr, lang) {
   if (days < 30) return lang === "he" ? `לפני ${days} ימים` : `${days} days ago`;
   const months = Math.floor(days / 30);
   return lang === "he" ? `לפני ${months} חודשים` : `${months} months ago`;
+}
+
+const TYPE_COLORS = { attraction: "#5B8C68", restaurant: "#C2854A", event: "#4F9AA8" };
+const TYPE_LABELS = {
+  he: { attraction: "אטרקציה", restaurant: "מסעדה / בית קפה", event: "אירוע" },
+  en: { attraction: "Attraction", restaurant: "Restaurant / Café", event: "Event" },
+};
+const CATEGORY_COLORS = {
+  nature: "#5B8C68", water: "#4F9AA8", culture: "#C2854A",
+  outdoor: "#7D8C5B", games: "#A6724F", experience: "#9B6B9E",
+  cafe: "#8C7B5B", israeli: "#C2854A", asian: "#7B5E3A",
+  italian: "#C2564A", bar: "#4A5A8C", breakfast: "#D4A843",
+  concert: "#7B4A9B", standup: "#C27B4A", theater: "#4A7B9B",
+  sports: "#4A9B6B", festival: "#C2574A", workshop: "#5B7A8C",
+};
+const CATEGORY_LABELS = {
+  he: {
+    all: "הכל",
+    nature: "טבע ובעלי חיים", water: "מים וקיץ", culture: "תרבות ולמידה",
+    outdoor: "טיולים בטבע", games: "אתגר ומשחק", experience: "חוויה ייחודית",
+    cafe: "בית קפה", israeli: "ישראלי / מזרח-תיכוני", asian: "אסייאתי",
+    italian: "איטלקי / פיצה", bar: "בר / אלכוהול", breakfast: "ארוחת בוקר",
+    concert: "הופעה / מוזיקה", standup: "סטנדאפ", theater: "תיאטרון / מחזמר",
+    sports: "ספורט", festival: "פסטיבל", workshop: "סדנה / קורס",
+  },
+  en: {
+    all: "All",
+    nature: "Nature & Animals", water: "Water & Summer", culture: "Culture & Learning",
+    outdoor: "Outdoor & Hiking", games: "Games & Challenges", experience: "Unique Experience",
+    cafe: "Café", israeli: "Israeli / Middle Eastern", asian: "Asian",
+    italian: "Italian / Pizza", bar: "Bar / Drinks", breakfast: "Breakfast",
+    concert: "Concert / Music", standup: "Stand-up", theater: "Theater / Musical",
+    sports: "Sports", festival: "Festival", workshop: "Workshop / Course",
+  },
+};
+const OCCASION_TAG_LABELS = {
+  he: { couple: "זוגי / דייט", family: "משפחתי", kids: "עם ילדים", friends: "עם חברים" },
+  en: { couple: "Couple / Date", family: "Family", kids: "With kids", friends: "With friends" },
+};
+const PRICE_LABELS = {
+  he: { 1: "מחיר נוח", 2: "מחיר בינוני", 3: "יוקרתי" },
+  en: { 1: "Budget-friendly", 2: "Moderate", 3: "Upscale" },
+};
+
+const categoryColor = (key) => CATEGORY_COLORS[key] || "#5B8C68";
+
+function formatEventDate(dateStr, lang) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  return d.toLocaleString(lang === "he" ? "he-IL" : "en-US", {
+    weekday: "short", day: "numeric", month: "short",
+    hour: "2-digit", minute: "2-digit",
+  });
 }
 
 export default function ActivityDetailScreen({ lang, setLang, onBack, isLoggedIn, onRequireLogin, activityId, user, onEdit, onViewHistory, onDeleted }) {
@@ -224,10 +290,81 @@ export default function ActivityDetailScreen({ lang, setLang, onBack, isLoggedIn
 
       <div className="max-w-2xl mx-auto px-4 py-5">
         <h1 className="text-2xl font-bold mb-2 text-ink">{activity.name}</h1>
+
+        {/* Type + category badges */}
+        <div className="flex items-center gap-2 flex-wrap mb-3">
+          {activity.type && activity.type !== "attraction" && (
+            <span className="text-xs font-semibold rounded-full px-2.5 py-1 text-white"
+              style={{ background: TYPE_COLORS[activity.type] || "#5B8C68" }}>
+              {TYPE_LABELS[lang]?.[activity.type] || activity.type}
+            </span>
+          )}
+          {activity.category && (
+            <span className="text-xs font-semibold rounded-full px-2.5 py-1 text-white"
+              style={{ background: categoryColor(activity.category) }}>
+              {CATEGORY_LABELS[lang]?.[activity.category] || activity.category}
+            </span>
+          )}
+        </div>
+
+        {/* Location + hours */}
         <div className="flex items-center gap-4 text-sm mb-1.5 text-inkSoft">
           <span className="flex items-center gap-1"><MapPin size={14} /> {activity.city}</span>
-          <span className="flex items-center gap-1"><Clock size={14} /> {activity.hours}</span>
+          {activity.hours && <span className="flex items-center gap-1"><Clock size={14} /> {activity.hours}</span>}
         </div>
+
+        {/* Event dates */}
+        {activity.type === "event" && activity.event_start && (
+          <div className="flex items-center gap-1.5 text-sm mb-1.5 text-inkSoft">
+            <Calendar size={14} />
+            <span>{formatEventDate(activity.event_start, lang)}</span>
+            {activity.event_end && (
+              <span className="text-inkSoft">
+                {" "}— {t.eventEnd} {formatEventDate(activity.event_end, lang)}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Price level */}
+        {activity.price_level && (
+          <div className="flex items-center gap-2 text-sm mb-1.5">
+            <span className="font-bold text-primaryDk tracking-wider">{"₪".repeat(activity.price_level)}</span>
+            <span className="text-xs text-inkSoft">{PRICE_LABELS[lang]?.[activity.price_level]}</span>
+          </div>
+        )}
+
+        {/* Phone */}
+        {activity.phone && (
+          <div className="flex items-center gap-1.5 text-sm mb-1.5 text-inkSoft">
+            <Phone size={14} />
+            <a href={`tel:${activity.phone}`} className="text-primaryDk font-medium">{activity.phone}</a>
+          </div>
+        )}
+
+        {/* Website */}
+        {activity.website_url && (
+          <div className="flex items-center gap-1.5 text-sm mb-1.5 text-inkSoft">
+            <ExternalLink size={14} />
+            <a href={activity.website_url} target="_blank" rel="noopener noreferrer"
+              className="text-primaryDk font-medium truncate max-w-xs">
+              {activity.website_url.replace(/^https?:\/\//, "")}
+            </a>
+          </div>
+        )}
+
+        {/* Occasion tags */}
+        {activity.occasion_tags?.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+            <span className="text-xs text-inkSoft">{t.suitableFor}:</span>
+            {activity.occasion_tags.map((tag) => (
+              <span key={tag} className="text-xs font-medium rounded-full px-2.5 py-0.5 bg-tint text-primaryDk border border-line">
+                {OCCASION_TAG_LABELS[lang]?.[tag] || tag}
+              </span>
+            ))}
+          </div>
+        )}
+
         <div className="flex items-center gap-1.5 mb-5">
           {avgRating ? (
             <>

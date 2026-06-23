@@ -37,6 +37,7 @@ export async function fetchActivities() {
   const { data, error } = await supabase
     .from("activities")
     .select("*, reviews(rating)")
+    .eq("status", "published")
     .order("created_at", { ascending: false });
   if (error) throw error;
 
@@ -46,6 +47,15 @@ export async function fetchActivities() {
     const avg = ratings.length ? ratings.reduce((s, r) => s + r.rating, 0) / ratings.length : null;
     return { ...a, avgRating: avg, reviewCount: ratings.length };
   });
+}
+
+export async function fetchAllActivities() {
+  const { data, error } = await supabase
+    .from("activities")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data;
 }
 
 export async function fetchActivityById(id) {

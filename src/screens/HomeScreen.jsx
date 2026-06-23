@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   MapPin, Clock, Star, Search, SlidersHorizontal, Heart, ChevronRight,
-  Globe, X, Plus, Users, Share2, User as UserIcon,
+  Globe, Plus, Share2, User as UserIcon, LocateFixed,
 } from "lucide-react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -14,58 +14,106 @@ const COPY = {
   he: {
     dir: "rtl",
     brand: "מה עושים היום",
-    searchPlaceholder: "חפשו עיר, אטרקציה או סוג פעילות...",
-    myKids: "הילדים שלי",
-    addChild: "הוסף ילד/ה",
-    childAge: "גיל",
-    done: "סגירה",
+    searchPlaceholder: "חפשו עיר, מקום או סוג בילוי...",
     results: "תוצאות נמצאו",
-    distanceSort: "מרחק",
     ratingSort: "דירוג",
+    distanceSort: "מרחק",
+    newestSort: "חדש",
     away: "ק״מ",
+    nearMe: "קרוב אליי",
+    locating: "מאתר...",
     signup: "הרשמה / התחברות",
     profile: "האזור שלי",
-    emptyState: "לא מצאנו אטרקציות שתואמות לסינון. נסו להרחיב את החיפוש, או הוסיפו אטרקציה בעצמכם!",
-    loading: "טוען אטרקציות...",
+    emptyState: "לא מצאנו מקומות שתואמים לסינון. נסו להרחיב את החיפוש, או הוסיפו מקום בעצמכם!",
+    loading: "טוען...",
     noRatingsYet: "אין דירוגים עדיין",
-    shareText: "תראו את האטרקציה הזו שמצאתי",
+    shareText: "תראו את המקום הזה שמצאתי",
     linkCopied: "הקישור הועתק!",
   },
   en: {
     dir: "ltr",
     brand: "What To Do Today",
-    searchPlaceholder: "Search city, attraction or activity type...",
-    myKids: "My kids",
-    addChild: "Add a child",
-    childAge: "Age",
-    done: "Done",
+    searchPlaceholder: "Search city, place or activity type...",
     results: "results found",
-    distanceSort: "Distance",
     ratingSort: "Rating",
+    distanceSort: "Distance",
+    newestSort: "Newest",
     away: "km",
+    nearMe: "Near me",
+    locating: "Locating...",
     signup: "Sign up / Log in",
     profile: "My Area",
-    emptyState: "No activities match your filters. Try widening your search, or add one yourself!",
-    loading: "Loading activities...",
+    emptyState: "No places match your filters. Try widening your search, or add one yourself!",
+    loading: "Loading...",
     noRatingsYet: "No ratings yet",
-    shareText: "Check out this activity I found",
+    shareText: "Check out this place I found",
     linkCopied: "Link copied!",
   },
 };
 
-const CATEGORY_KEYS = ["all", "nature", "water", "culture", "outdoor", "games"];
 const CATEGORY_LABELS = {
-  he: { all: "הכל", nature: "טבע ובעלי חיים", water: "מים וקיץ", culture: "תרבות ולמידה", outdoor: "טיולים בטבע", games: "אתגר ומשחק" },
-  en: { all: "All", nature: "Nature & Animals", water: "Water & Summer", culture: "Culture & Learning", outdoor: "Outdoor & Hiking", games: "Games & Challenges" },
+  he: {
+    all: "הכל",
+    // attractions
+    nature: "טבע ובעלי חיים", water: "מים וקיץ", culture: "תרבות ולמידה",
+    outdoor: "טיולים בטבע", games: "אתגר ומשחק", experience: "חוויה ייחודית",
+    // restaurants
+    cafe: "בית קפה", israeli: "ישראלי / מזרח-תיכוני", asian: "אסייאתי",
+    italian: "איטלקי / פיצה", bar: "בר / אלכוהול", breakfast: "ארוחת בוקר",
+    // events
+    concert: "הופעה / מוזיקה", standup: "סטנדאפ", theater: "תיאטרון / מחזמר",
+    sports: "ספורט", festival: "פסטיבל", workshop: "סדנה / קורס",
+  },
+  en: {
+    all: "All",
+    nature: "Nature & Animals", water: "Water & Summer", culture: "Culture & Learning",
+    outdoor: "Outdoor & Hiking", games: "Games & Challenges", experience: "Unique Experience",
+    cafe: "Café", israeli: "Israeli / Middle Eastern", asian: "Asian",
+    italian: "Italian / Pizza", bar: "Bar / Drinks", breakfast: "Breakfast",
+    concert: "Concert / Music", standup: "Stand-up", theater: "Theater / Musical",
+    sports: "Sports", festival: "Festival", workshop: "Workshop / Course",
+  },
 };
 const CATEGORY_COLORS = {
-  nature: "#5B8C68",
-  water: "#4F9AA8",
-  culture: "#C2854A",
-  outdoor: "#7D8C5B",
-  games: "#A6724F",
+  nature: "#5B8C68", water: "#4F9AA8", culture: "#C2854A",
+  outdoor: "#7D8C5B", games: "#A6724F", experience: "#9B6B9E",
+  cafe: "#8C7B5B", israeli: "#C2854A", asian: "#7B5E3A",
+  italian: "#C2564A", bar: "#4A5A8C", breakfast: "#D4A843",
+  concert: "#7B4A9B", standup: "#C27B4A", theater: "#4A7B9B",
+  sports: "#4A9B6B", festival: "#C2574A", workshop: "#5B7A8C",
 };
 const categoryColor = (key) => CATEGORY_COLORS[key] || "#5B8C68";
+
+const CATEGORIES_BY_TYPE = {
+  all: [],
+  attraction: ["all", "nature", "water", "culture", "outdoor", "games", "experience"],
+  restaurant: ["all", "cafe", "israeli", "asian", "italian", "bar", "breakfast"],
+  event: ["all", "concert", "standup", "theater", "sports", "festival", "workshop"],
+};
+
+const TYPE_KEYS = ["all", "attraction", "restaurant", "event"];
+const TYPE_LABELS = {
+  he: { all: "הכל", attraction: "אטרקציות", restaurant: "מסעדות ובתי קפה", event: "אירועים" },
+  en: { all: "All", attraction: "Attractions", restaurant: "Restaurants & Cafés", event: "Events" },
+};
+const TYPE_COLORS = { attraction: "#5B8C68", restaurant: "#C2854A", event: "#4F9AA8" };
+const typeColor = (key) => TYPE_COLORS[key] || "#5B8C68";
+
+const OCCASION_KEYS = ["all", "couple", "family", "kids", "friends"];
+const OCCASION_LABELS = {
+  he: { all: "כל הקהל", couple: "זוגי / דייט", family: "משפחתי", kids: "עם ילדים", friends: "עם חברים" },
+  en: { all: "Everyone", couple: "Couple / Date", family: "Family", kids: "With kids", friends: "With friends" },
+};
+
+function getDistanceKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 // Default map center: Israel
 const DEFAULT_CENTER = [31.7683, 35.2137];
@@ -137,11 +185,18 @@ function ActivityCard({ a, lang, isRTL, onHover, hovered, onOpen, t, isSaved, on
         <div className="flex items-center gap-1.5 text-xs mb-1.5 text-inkSoft">
           <MapPin size={12} />
           <span>{a.city}</span>
+          {a.distance != null && (
+            <span className="font-medium text-primaryDk">
+              · {a.distance < 1 ? "<1" : a.distance.toFixed(0)} {t.away}
+            </span>
+          )}
         </div>
-        <div className="flex items-center gap-1.5 text-xs mb-2 text-inkSoft">
-          <Clock size={12} />
-          <span>{a.hours}</span>
-        </div>
+        {a.hours && (
+          <div className="flex items-center gap-1.5 text-xs mb-2 text-inkSoft">
+            <Clock size={12} />
+            <span>{a.hours}</span>
+          </div>
+        )}
         <div className="flex items-center justify-between mt-1">
           {a.avgRating ? (
             <div className="flex items-center gap-1">
@@ -209,11 +264,43 @@ export default function HomeScreen({ lang, setLang, onOpenActivity, onAdd, onAut
   const [savedIds, setSavedIds] = useState([]);
 
   const [query, setQuery] = useState("");
-  const [kids, setKids] = useState([{ id: 1, age: 4 }]);
-  const [kidsOpen, setKidsOpen] = useState(false);
+  const [selectedType, setSelectedType] = useState("all");
+  const [selectedOccasion, setSelectedOccasion] = useState("all");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [sortBy, setSortBy] = useState("rating");
   const [hovered, setHovered] = useState(null);
+  const [userLoc, setUserLoc] = useState(null);
+  const [locLoading, setLocLoading] = useState(false);
+
+  const handleLocate = () => {
+    if (userLoc) {
+      setUserLoc(null);
+      if (sortBy === "distance") setSortBy("rating");
+      return;
+    }
+    setLocLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setSortBy("distance");
+        setLocLoading(false);
+      },
+      () => setLocLoading(false),
+      { timeout: 8000 }
+    );
+  };
+
+  const handleTypeChange = (type) => {
+    setSelectedType(type);
+    setSelectedCategory("all");
+  };
+
+  const cycleSortBy = () => {
+    if (sortBy === "rating") setSortBy(userLoc ? "distance" : "newest");
+    else if (sortBy === "distance") setSortBy("newest");
+    else setSortBy("rating");
+  };
+  const SORT_LABEL = { rating: t.ratingSort, distance: t.distanceSort, newest: t.newestSort };
 
   useEffect(() => {
     fetchActivities()
@@ -245,25 +332,38 @@ export default function HomeScreen({ lang, setLang, onOpenActivity, onAdd, onAut
     }
   };
 
-  const kidAges = kids.map((k) => k.age);
-
   const filtered = useMemo(() => {
-    let list = activities.filter((a) => {
-      const mQ = !query || a.name.toLowerCase().includes(query.toLowerCase()) || a.city.toLowerCase().includes(query.toLowerCase());
-      const mA = kidAges.length === 0 || kidAges.some((age) => age >= a.age_min && age <= a.age_max);
-      const mC = selectedCategory === "all" || a.category === selectedCategory;
-      return mQ && mA && mC;
-    });
+    const now = new Date();
+    let list = activities
+      .filter((a) => {
+        const mQ = !query || a.name.toLowerCase().includes(query.toLowerCase()) || a.city.toLowerCase().includes(query.toLowerCase());
+        const mT = selectedType === "all" || a.type === selectedType;
+        const mOccasion =
+          selectedOccasion === "all" ||
+          !a.occasion_tags ||
+          a.occasion_tags.length === 0 ||
+          a.occasion_tags.includes(selectedOccasion);
+        const mC = selectedCategory === "all" || a.category === selectedCategory;
+        const mEvent = a.type !== "event" || !a.event_start || new Date(a.event_start) >= now;
+        return mQ && mT && mOccasion && mC && mEvent;
+      })
+      .map((a) => ({
+        ...a,
+        distance: userLoc && a.lat && a.lng ? getDistanceKm(userLoc.lat, userLoc.lng, a.lat, a.lng) : null,
+      }));
+
     list.sort((a, b) => {
-      if (sortBy === "rating") return (b.avgRating || 0) - (a.avgRating || 0);
-      return 0;
+      if (sortBy === "distance") {
+        if (a.distance == null && b.distance == null) return 0;
+        if (a.distance == null) return 1;
+        if (b.distance == null) return -1;
+        return a.distance - b.distance;
+      }
+      if (sortBy === "newest") return new Date(b.created_at) - new Date(a.created_at);
+      return (b.avgRating || 0) - (a.avgRating || 0);
     });
     return list;
-  }, [activities, query, kidAges.join(","), selectedCategory, sortBy]);
-
-  const addChild = () => setKids([...kids, { id: (kids.length ? Math.max(...kids.map((k) => k.id)) : 0) + 1, age: 4 }]);
-  const removeChild = (id) => setKids(kids.filter((k) => k.id !== id));
-  const updateAge = (id, age) => setKids(kids.map((k) => (k.id === id ? { ...k, age } : k)));
+  }, [activities, query, selectedType, selectedOccasion, selectedCategory, sortBy, userLoc]);
 
   return (
     <div dir={t.dir} className="min-h-screen flex flex-col bg-bg">
@@ -271,10 +371,7 @@ export default function HomeScreen({ lang, setLang, onOpenActivity, onAdd, onAut
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Logo size={36} />
-            <div className="hidden sm:flex flex-col leading-tight">
-              <span className="font-bold text-ink text-sm">Spotikid</span>
-              <span className="text-[11px] text-inkSoft">{t.brand}</span>
-            </div>
+            <span className="hidden sm:block font-bold text-ink text-sm">{t.brand}</span>
           </div>
           <div className="flex-1 max-w-md mx-3 relative">
             <Search size={16} className={`absolute top-1/2 -translate-y-1/2 text-inkSoft ${isRTL ? "right-3.5" : "left-3.5"}`} />
@@ -302,68 +399,78 @@ export default function HomeScreen({ lang, setLang, onOpenActivity, onAdd, onAut
           </div>
         </div>
 
-        <div className="max-w-6xl mx-auto px-4 pb-3 flex items-center gap-2 overflow-x-auto scrollbar-hide">
+        {/* Row 1: Location + Type filter */}
+        <div className="max-w-6xl mx-auto px-4 pb-2 flex items-center gap-2 overflow-x-auto scrollbar-hide">
           <button
-            onClick={() => setKidsOpen(!kidsOpen)}
+            onClick={handleLocate}
             className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-              kidsOpen ? "bg-primaryDk text-white border-primaryDk" : "bg-surface text-ink border-line"
+              userLoc ? "bg-primaryDk text-white border-primaryDk" : "bg-surface text-ink border-line"
             }`}
           >
-            <Users size={14} />
-            {t.myKids}
-            {kids.length > 0 && (
-              <span className={`text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center ${kidsOpen ? "bg-white text-primaryDk" : "bg-primary text-white"}`}>
-                {kids.length}
-              </span>
-            )}
+            <LocateFixed size={14} className={locLoading ? "animate-pulse" : ""} />
+            {locLoading ? t.locating : t.nearMe}
           </button>
           <div className="w-px h-5 shrink-0 bg-line" />
-          {CATEGORY_KEYS.map((key) => {
-            const isSelected = selectedCategory === key;
-            const color = key === "all" ? "#5B8C68" : categoryColor(key);
+          {TYPE_KEYS.map((key) => {
+            const isSelected = selectedType === key;
+            const color = key === "all" ? "#5B8C68" : typeColor(key);
             return (
               <button
                 key={key}
-                onClick={() => setSelectedCategory(key)}
+                onClick={() => handleTypeChange(key)}
                 className={`shrink-0 px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors ${
                   isSelected ? "text-white" : "bg-surface text-ink border-line"
                 }`}
                 style={isSelected ? { background: color, borderColor: color } : undefined}
               >
-                {CATEGORY_LABELS[lang][key]}
+                {TYPE_LABELS[lang][key]}
               </button>
             );
           })}
         </div>
 
-        {kidsOpen && (
-          <div className="max-w-6xl mx-auto px-4 pb-4">
-            <div className="rounded-2xl p-4 shadow-sm border border-line bg-surface">
-              <div className="space-y-2.5 mb-3">
-                {kids.map((kid, idx) => (
-                  <div key={kid.id} className="flex items-center gap-3">
-                    <span className="text-sm w-16 shrink-0 text-inkSoft">{lang === "he" ? `ילד/ה ${idx + 1}` : `Child ${idx + 1}`}</span>
-                    <input type="range" min="0" max="14" value={kid.age} onChange={(e) => updateAge(kid.id, parseInt(e.target.value))} className="flex-1 accent-primary" />
-                    <span className="text-sm font-semibold w-20 shrink-0 text-ink">{t.childAge} {kid.age}</span>
-                    <button onClick={() => removeChild(kid.id)} className="text-inkSoft shrink-0"><X size={16} /></button>
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-center justify-between">
-                <button onClick={addChild} className="flex items-center gap-1 text-sm font-medium text-primaryDk">
-                  <Plus size={14} /> {t.addChild}
-                </button>
-                <button onClick={() => setKidsOpen(false)} className="text-sm font-semibold rounded-full px-4 py-1.5 bg-primaryDk text-white">
-                  {t.done}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Row 2: Occasion + Category filter */}
+        <div className="max-w-6xl mx-auto px-4 pb-3 flex items-center gap-2 overflow-x-auto scrollbar-hide">
+          {OCCASION_KEYS.map((key) => {
+            const isSelected = selectedOccasion === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setSelectedOccasion(key)}
+                className={`shrink-0 px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                  isSelected ? "bg-primaryDk text-white border-primaryDk" : "bg-surface text-ink border-line"
+                }`}
+              >
+                {OCCASION_LABELS[lang][key]}
+              </button>
+            );
+          })}
+          {CATEGORIES_BY_TYPE[selectedType]?.length > 0 && (
+            <>
+              <div className="w-px h-5 shrink-0 bg-line" />
+              {CATEGORIES_BY_TYPE[selectedType].map((key) => {
+                const isSelected = selectedCategory === key;
+                const color = key === "all" ? "#5B8C68" : categoryColor(key);
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setSelectedCategory(key)}
+                    className={`shrink-0 px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                      isSelected ? "text-white" : "bg-surface text-ink border-line"
+                    }`}
+                    style={isSelected ? { background: color, borderColor: color } : undefined}
+                  >
+                    {CATEGORY_LABELS[lang][key]}
+                  </button>
+                );
+              })}
+            </>
+          )}
+        </div>
       </header>
 
       <div className="flex-1 max-w-6xl w-full mx-auto px-4 py-4 grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-4">
-        <div className="h-64 lg:h-[calc(100vh-180px)] lg:sticky lg:top-[148px] order-1 lg:order-2">
+        <div className="h-64 lg:h-[calc(100vh-210px)] lg:sticky lg:top-[172px] order-1 lg:order-2">
           <MapPanel activities={filtered} hovered={hovered} onHover={setHovered} onOpen={onOpenActivity} />
         </div>
 
@@ -372,8 +479,8 @@ export default function HomeScreen({ lang, setLang, onOpenActivity, onAdd, onAut
             <span className="text-sm text-inkSoft">
               <span className="font-semibold text-ink">{filtered.length}</span> {t.results}
             </span>
-            <button onClick={() => setSortBy(sortBy === "rating" ? "newest" : "rating")} className="flex items-center gap-1.5 text-sm font-medium text-ink">
-              <SlidersHorizontal size={14} /> {t.ratingSort}
+            <button onClick={cycleSortBy} className="flex items-center gap-1.5 text-sm font-medium text-ink">
+              <SlidersHorizontal size={14} /> {SORT_LABEL[sortBy]}
             </button>
           </div>
 
